@@ -6,8 +6,7 @@ import AxiomTTY
 Rectangle {
     id: root
 
-    required property string title
-    required property bool running
+    required property var sessionManager
     required property var appWindow
 
     implicitHeight: Theme.headerHeight
@@ -25,7 +24,7 @@ Rectangle {
         spacing: 0
 
         Item {
-            Layout.preferredWidth: 116
+            Layout.preferredWidth: 108
             Layout.fillHeight: true
 
             Row {
@@ -60,54 +59,69 @@ Rectangle {
         }
 
         Item {
-            Layout.leftMargin: 8
-            Layout.preferredWidth: 270
+            id: addButton
+            Layout.preferredWidth: 36
             Layout.preferredHeight: 32
+            Layout.leftMargin: 6
 
             Rectangle {
-                anchors.fill: parent
-                color: Theme.tabActive
-                border.width: 1
-                border.color: Theme.border
+                anchors.centerIn: parent
+                width: 28
+                height: 28
                 radius: Theme.radiusSmall
+                color: addMouse.containsMouse ? Theme.hover : "transparent"
             }
 
-            Rectangle {
-                width: 2
-                height: 18
-                anchors.left: parent.left
-                anchors.leftMargin: 1
-                anchors.verticalCenter: parent.verticalCenter
-                color: root.running ? Theme.accent : Theme.textFaint
+            Text {
+                anchors.centerIn: parent
+                text: "+"
+                color: addMouse.containsMouse ? Theme.text : Theme.textMuted
+                font.family: "sans-serif"
+                font.pixelSize: 17
+                font.weight: Font.Light
             }
 
-            RowLayout {
+            MouseArea {
+                id: addMouse
                 anchors.fill: parent
-                anchors.leftMargin: 12
-                anchors.rightMargin: 11
-                spacing: 8
-
-                Rectangle {
-                    Layout.preferredWidth: 6
-                    Layout.preferredHeight: 6
-                    radius: 3
-                    color: root.running ? Theme.success : Theme.textFaint
-                }
-
-                Text {
-                    Layout.fillWidth: true
-                    text: root.title.length > 0 ? root.title : "Shell"
-                    color: Theme.text
-                    elide: Text.ElideRight
-                    font.family: "sans-serif"
-                    font.pixelSize: 12
-                    font.weight: Font.Medium
-                }
+                hoverEnabled: true
+                onClicked: root.sessionManager.newTab()
             }
         }
 
-        // Empty header space doubles as the native drag area. Qt delegates the
-        // actual move operation to the compositor, which keeps Wayland snapping.
+        ListView {
+            id: tabList
+            Layout.preferredWidth: Math.min(contentWidth, Math.max(190, root.width - 108 - 36 - 144 - 100))
+            Layout.preferredHeight: 32
+            Layout.leftMargin: 4
+            orientation: ListView.Horizontal
+            spacing: 4
+            clip: true
+            model: root.sessionManager
+            currentIndex: root.sessionManager.currentIndex
+            boundsBehavior: Flickable.StopAtBounds
+            interactive: contentWidth > width
+
+            onCurrentIndexChanged: {
+                if (currentIndex >= 0)
+                    positionViewAtIndex(currentIndex, ListView.Contain)
+            }
+
+            delegate: SessionTab {
+                required property int index
+                required property string displayTitle
+                required property bool isRunning
+
+                title: displayTitle
+                running: isRunning
+                active: index === root.sessionManager.currentIndex
+                tabIndex: index
+
+                onSelected: root.sessionManager.activateTab(index)
+                onCloseRequested: root.sessionManager.closeTab(index)
+            }
+        }
+
         Item {
             id: dragRegion
             Layout.fillWidth: true

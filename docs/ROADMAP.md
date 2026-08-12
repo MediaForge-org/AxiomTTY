@@ -138,3 +138,15 @@ The system shell remains available even after the own shell becomes usable.
 - Improved DECSC/DECRC state preservation
 - Added modifier-aware Insert/Delete/PageUp/PageDown and F1–F12 sequences
 - Expanded smoke tests around the new VT behavior
+
+## M2.1 — Tabs & Sessions
+
+- Added a `SessionManager` model owning independent `TerminalSession` instances
+- Each tab has its own PTY, terminal grid, process lifecycle and scrollback history
+- New tabs inherit the active shell's current directory through `/proc/<pid>/cwd`
+- Added compact multi-tab header UI with close controls and horizontal overflow
+- Added standard tab shortcuts while preserving normal terminal `Ctrl+W`
+- Added session count and active working directory to the status bar
+
+Next M2 work: split panes backed by the same session infrastructure, followed by richer
+tab lifecycle operations such as rename, reorder and duplicate.

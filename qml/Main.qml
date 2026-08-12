@@ -25,25 +25,23 @@ ApplicationWindow {
 
         TopBar {
             Layout.fillWidth: true
-            title: terminalSession.title
-            running: terminalSession.running
+            sessionManager: sessions
             appWindow: root
         }
 
         TerminalPane {
             Layout.fillWidth: true
             Layout.fillHeight: true
+            session: sessions.activeSession
         }
 
         StatusBar {
             Layout.fillWidth: true
-            shell: terminalSession.shell
-            running: terminalSession.running
+            session: sessions.activeSession
+            sessionCount: sessions.count
         }
     }
 
-    // One restrained 1px client border gives the frameless window a clean edge
-    // without turning the UI into a card or adding decorative shadows.
     Rectangle {
         anchors.fill: parent
         color: "transparent"
@@ -52,8 +50,6 @@ ApplicationWindow {
         z: 900
     }
 
-    // Frameless windows need resize hit zones. startSystemResize() delegates the
-    // resize to the compositor/window manager and works correctly on Wayland.
     MouseArea {
         width: 6; anchors.left: parent.left; anchors.top: parent.top; anchors.bottom: parent.bottom
         enabled: root.visibility === Window.Windowed
@@ -83,7 +79,6 @@ ApplicationWindow {
         onPressed: root.startSystemResize(Qt.BottomEdge)
     }
 
-    // Corners sit above edge zones so diagonal resize wins in the overlap.
     MouseArea {
         width: 9; height: 9; anchors.left: parent.left; anchors.top: parent.top
         enabled: root.visibility === Window.Windowed
@@ -114,15 +109,58 @@ ApplicationWindow {
     }
 
     Shortcut {
+        sequence: "Ctrl+Shift+T"
+        onActivated: sessions.newTab()
+    }
+
+    Shortcut {
+        sequence: "Ctrl+Shift+W"
+        onActivated: sessions.closeTab(sessions.currentIndex)
+    }
+
+    Shortcut {
+        sequence: "Ctrl+Tab"
+        onActivated: sessions.nextTab()
+    }
+
+    Shortcut {
+        sequence: "Ctrl+Shift+Tab"
+        onActivated: sessions.previousTab()
+    }
+
+    Shortcut {
+        sequence: "Ctrl+PageDown"
+        onActivated: sessions.nextTab()
+    }
+
+    Shortcut {
+        sequence: "Ctrl+PageUp"
+        onActivated: sessions.previousTab()
+    }
+
+    Shortcut {
         sequence: "Ctrl+Shift+L"
-        onActivated: terminalSession.clearDisplay()
+        onActivated: {
+            if (sessions.activeSession)
+                sessions.activeSession.clearDisplay()
+        }
     }
 
     Shortcut {
         sequence: "Ctrl+Shift+R"
         onActivated: {
-            if (!terminalSession.running)
-                terminalSession.startDefaultShell()
+            if (sessions.activeSession && !sessions.activeSession.running)
+                sessions.activeSession.startDefaultShellInDirectory(sessions.activeSession.workingDirectory)
         }
     }
+
+    Shortcut { sequence: "Alt+1"; onActivated: sessions.activateTabNumber(1) }
+    Shortcut { sequence: "Alt+2"; onActivated: sessions.activateTabNumber(2) }
+    Shortcut { sequence: "Alt+3"; onActivated: sessions.activateTabNumber(3) }
+    Shortcut { sequence: "Alt+4"; onActivated: sessions.activateTabNumber(4) }
+    Shortcut { sequence: "Alt+5"; onActivated: sessions.activateTabNumber(5) }
+    Shortcut { sequence: "Alt+6"; onActivated: sessions.activateTabNumber(6) }
+    Shortcut { sequence: "Alt+7"; onActivated: sessions.activateTabNumber(7) }
+    Shortcut { sequence: "Alt+8"; onActivated: sessions.activateTabNumber(8) }
+    Shortcut { sequence: "Alt+9"; onActivated: sessions.activateTabNumber(9) }
 }

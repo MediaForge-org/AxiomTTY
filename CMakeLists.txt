@@ -11,7 +11,7 @@ set(CMAKE_CXX_EXTENSIONS OFF)
 set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 
 set(AXIOMTTY_DEVELOPMENT_STAGE "pre-alpha")
-set(AXIOMTTY_MILESTONE "M1-tui-compatibility-r8")
+set(AXIOMTTY_MILESTONE "M2-tabs-sessions-r1")
 
 option(AXIOMTTY_WARNINGS_AS_ERRORS "Treat compiler warnings as errors" OFF)
 option(AXIOMTTY_BUILD_TESTS "Build terminal core smoke tests" ON)
@@ -29,6 +29,8 @@ set(AXIOMTTY_CORE_SOURCES
 qt_add_executable(axiomtty
     src/main.cpp
     src/terminal/PtyProcess.cpp
+    src/terminal/SessionManager.cpp
+    src/terminal/SessionManager.h
     src/terminal/PtyProcess.h
     src/terminal/TerminalSession.cpp
     src/terminal/TerminalSession.h
@@ -40,6 +42,7 @@ qt_add_executable(axiomtty
 set(AXIOMTTY_QML_FILES
     qml/Main.qml
     qml/TerminalPane.qml
+    qml/SessionTab.qml
     qml/TopBar.qml
     qml/StatusBar.qml
     qml/Theme.qml

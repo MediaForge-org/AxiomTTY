@@ -6,8 +6,12 @@ FocusScope {
     id: root
     focus: true
 
+    required property var session
+
     property bool copyNotice: false
     property bool resizeNotice: false
+
+    onSessionChanged: Qt.callLater(function() { terminalView.forceActiveFocus() })
 
     Timer {
         id: copyNoticeTimer
@@ -24,7 +28,7 @@ FocusScope {
     }
 
     Connections {
-        target: terminalSession
+        target: root.session
         function onTerminalSizeChanged() {
             root.resizeNotice = true
             resizeNoticeTimer.restart()
@@ -42,7 +46,7 @@ FocusScope {
             anchors.rightMargin: 16
             anchors.topMargin: 12
             anchors.bottomMargin: 12
-            session: terminalSession
+            session: root.session
             fontPixelSize: Theme.terminalFontSize
             focus: true
 
@@ -74,19 +78,21 @@ FocusScope {
             Text {
                 id: hintText
                 anchors.centerIn: parent
-                text: !terminalSession.running
-                      ? "SHELL STOPPED"
-                      : root.copyNotice
-                        ? "COPIED"
-                        : terminalView.hasSelection
-                          ? "CTRL+C  COPY"
-                          : terminalView.scrollbackOffset > 0
-                            ? "SCROLLBACK  -" + terminalView.scrollbackOffset
-                            : root.resizeNotice
-                              ? terminalSession.columns + " × " + terminalSession.rows
-                              : !terminalView.activeFocus
-                                ? "CLICK TO TYPE"
-                                : ""
+                text: !root.session
+                      ? "NO SESSION"
+                      : !root.session.running
+                        ? "SHELL STOPPED"
+                        : root.copyNotice
+                          ? "COPIED"
+                          : terminalView.hasSelection
+                            ? "CTRL+C  COPY"
+                            : terminalView.scrollbackOffset > 0
+                              ? "SCROLLBACK  -" + terminalView.scrollbackOffset
+                              : root.resizeNotice
+                                ? root.session.columns + " × " + root.session.rows
+                                : !terminalView.activeFocus
+                                  ? "CLICK TO TYPE"
+                                  : ""
                 color: root.copyNotice ? Theme.accent : Theme.textFaint
                 font.family: "sans-serif"
                 font.pixelSize: 9

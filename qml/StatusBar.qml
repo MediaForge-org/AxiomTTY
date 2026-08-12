@@ -5,14 +5,20 @@ import AxiomTTY
 Rectangle {
     id: root
 
-    required property string shell
-    required property bool running
+    required property var session
+    required property int sessionCount
 
     readonly property string shellName: {
-        if (root.shell.length === 0)
+        if (!root.session || root.session.shell.length === 0)
             return "shell"
-        const parts = root.shell.split("/")
-        return parts.length > 0 ? parts[parts.length - 1] : root.shell
+        const parts = root.session.shell.split("/")
+        return parts.length > 0 ? parts[parts.length - 1] : root.session.shell
+    }
+
+    readonly property string directoryLabel: {
+        if (!root.session)
+            return ""
+        return root.session.workingDirectory
     }
 
     implicitHeight: Theme.statusHeight
@@ -35,17 +41,41 @@ Rectangle {
             Layout.preferredWidth: 5
             Layout.preferredHeight: 5
             radius: 3
-            color: root.running ? Theme.success : Theme.textFaint
+            color: root.session && root.session.running ? Theme.success : Theme.textFaint
         }
 
         Text {
-            text: root.running ? root.shellName : "shell stopped"
-            color: root.running ? Theme.textMuted : Theme.textFaint
+            text: root.session && root.session.running ? root.shellName : "shell stopped"
+            color: root.session && root.session.running ? Theme.textMuted : Theme.textFaint
             font.family: "sans-serif"
             font.pixelSize: 10
         }
 
+        Text {
+            text: root.directoryLabel
+            visible: text.length > 0
+            color: Theme.textFaint
+            elide: Text.ElideMiddle
+            Layout.maximumWidth: 420
+            font.family: "sans-serif"
+            font.pixelSize: 9
+        }
+
         Item { Layout.fillWidth: true }
+
+        Text {
+            text: root.sessionCount + (root.sessionCount === 1 ? " SESSION" : " SESSIONS")
+            color: Theme.textFaint
+            font.family: "sans-serif"
+            font.pixelSize: 9
+            font.letterSpacing: 0.35
+        }
+
+        Rectangle {
+            Layout.preferredWidth: 1
+            Layout.preferredHeight: 10
+            color: Theme.border
+        }
 
         Text {
             text: "UTF-8"

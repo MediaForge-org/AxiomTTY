@@ -11,9 +11,9 @@ reducing the design to a lowest common denominator.
 ```text
 QML chrome / interaction
   |
-C++ TerminalView renderer
+SessionManager (tabs; split tree next)
   |
-TerminalSession
+TerminalView <-> active TerminalSession
   |
 VT parser -> TerminalScreen cell grid       Own shell (later)
   |                                         |-- lexer/parser
@@ -26,7 +26,7 @@ The GUI does not own process semantics. The terminal emulator does not know
 about future workspaces or package-manager UI. The future own shell remains a
 separate component and can later be built as a standalone executable.
 
-## Current milestone — M1 Terminal Core R5
+## Current milestone — M2.1 Tabs & Sessions
 
 Implemented:
 
@@ -57,6 +57,18 @@ Implemented:
 
 Installed Linux commands continue to be real executables. `git`, `dnf`, `sudo`,
 `ssh`, `docker`, `cmake`, etc. are not reimplemented.
+
+### Session ownership
+
+`SessionManager` is now the application-level owner of terminal sessions. Each
+`TerminalSession` owns one PTY, one VT parser and one terminal screen model. Switching
+tabs only rebinds the `TerminalView` to another session; it does not recreate or pause
+the underlying process.
+
+New tabs query `/proc/<shell-pid>/cwd` and start in the active shell's current directory.
+This keeps Linux shell semantics while avoiding any attempt to infer a directory from
+prompt text. The same session objects are intended to become leaves in the M2 split
+tree, so tabs and splits will share one lifecycle model rather than separate hacks.
 
 ## Still incomplete inside M1
 

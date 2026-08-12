@@ -49,16 +49,27 @@ bool TerminalSession::applicationCursorKeys() const { return m_screen.applicatio
 bool TerminalSession::bracketedPaste() const { return m_screen.bracketedPaste(); }
 int TerminalSession::rows() const noexcept { return m_screen.rows(); }
 int TerminalSession::columns() const noexcept { return m_screen.columns(); }
+QString TerminalSession::workingDirectory() const { return m_workingDirectory; }
 const TerminalScreen& TerminalSession::screen() const noexcept { return m_screen; }
 
 void TerminalSession::startDefaultShell()
 {
+    startDefaultShellInDirectory(m_workingDirectory.isEmpty() ? QDir::homePath() : m_workingDirectory);
+}
+
+void TerminalSession::startDefaultShellInDirectory(const QString& workingDirectory)
+{
     const QString configuredShell = QProcessEnvironment::systemEnvironment().value(QStringLiteral("SHELL"));
     const QString candidate = configuredShell.isEmpty() ? QStringLiteral("/bin/bash") : configuredShell;
-    startShell(candidate);
+    startShellInDirectory(candidate, workingDirectory);
 }
 
 void TerminalSession::startShell(const QString& shellPath)
+{
+    startShellInDirectory(shellPath, m_workingDirectory.isEmpty() ? QDir::homePath() : m_workingDirectory);
+}
+
+void TerminalSession::startShellInDirectory(const QString& shellPath, const QString& workingDirectory)
 {
     if (m_process.isRunning()) {
         return;
@@ -72,6 +83,12 @@ void TerminalSession::startShell(const QString& shellPath)
     m_shell = shellPath;
     emit shellChanged();
 
+    const QString startDirectory = workingDirectory.isEmpty() ? QDir::homePath() : workingDirectory;
+    if (m_workingDirectory != startDirectory) {
+        m_workingDirectory = startDirectory;
+        emit workingDirectoryChanged();
+    }
+
     const QFileInfo shellInfo(shellPath);
     setTitle(shellInfo.fileName().isEmpty() ? QStringLiteral("Shell") : shellInfo.fileName());
 
@@ -83,11 +100,12 @@ void TerminalSession::startShell(const QString& shellPath)
         arguments << QStringLiteral("-i");
     }
 
-    if (!m_process.start(shellPath, arguments, QDir::homePath())) {
+    if (!m_process.start(shellPath, arguments, startDirectory)) {
         m_parser.consume(QStringLiteral("[failed to start %1]\r\n").arg(shellPath).toUtf8());
         emit screenChanged();
     } else {
         m_process.resize(m_screen.rows(), m_screen.columns());
+        refreshWorkingDirectory();
     }
 }
 
@@ -158,6 +176,37 @@ void TerminalSession::resizeTerminal(int rowCount, int columnCount)
     m_process.resize(rowCount, columnCount);
     emit screenChanged();
     emit terminalSizeChanged();
+}
+
+
+void TerminalSession::refreshWorkingDirectory()
+{
+    if (!m_process.isRunning() || m_process.processId() <= 0) {
+        return;
+    }
+
+    const QString procLink = QStringLiteral("/proc/%1/cwd").arg(m_process.processId());
+    const QString target = QFileInfo(procLink).symLinkTarget();
+    if (target.isEmpty() || target == m_workingDirectory) {
+        return;
+    }
+
+    m_workingDirectory = target;
+    emit workingDirectoryChanged();
+}
+
+void TerminalSession::setInitialWorkingDirectory(const QString& workingDirectory)
+{
+    if (m_process.isRunning()) {
+        return;
+    }
+
+    const QString normalized = workingDirectory.isEmpty() ? QDir::homePath() : workingDirectory;
+    if (m_workingDirectory == normalized) {
+        return;
+    }
+    m_workingDirectory = normalized;
+    emit workingDirectoryChanged();
 }
 
 void TerminalSession::consumeOutput(const QByteArray& bytes)

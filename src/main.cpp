@@ -3,10 +3,9 @@
 #include <clocale>
 #include <QQmlApplicationEngine>
 #include <QQmlContext>
-#include <QTimer>
 #include <qqml.h>
 
-#include "terminal/TerminalSession.h"
+#include "terminal/SessionManager.h"
 #include "terminal/TerminalView.h"
 
 int main(int argc, char* argv[])
@@ -18,10 +17,10 @@ int main(int argc, char* argv[])
 
     qmlRegisterType<TerminalView>("AxiomTTY.Native", 1, 0, "TerminalView");
 
-    TerminalSession terminalSession;
+    SessionManager sessionManager;
 
     QQmlApplicationEngine engine;
-    engine.rootContext()->setContextProperty(QStringLiteral("terminalSession"), &terminalSession);
+    engine.rootContext()->setContextProperty(QStringLiteral("sessions"), &sessionManager);
 
     QObject::connect(
         &engine,
@@ -32,7 +31,6 @@ int main(int argc, char* argv[])
 
     engine.loadFromModule("AxiomTTY", "Main");
 
-    QTimer::singleShot(0, &terminalSession, &TerminalSession::startDefaultShell);
 
     return app.exec();
 }

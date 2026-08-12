@@ -19,6 +19,7 @@ class TerminalSession final : public QObject
     Q_PROPERTY(bool bracketedPaste READ bracketedPaste NOTIFY terminalModesChanged)
     Q_PROPERTY(int rows READ rows NOTIFY terminalSizeChanged)
     Q_PROPERTY(int columns READ columns NOTIFY terminalSizeChanged)
+    Q_PROPERTY(QString workingDirectory READ workingDirectory NOTIFY workingDirectoryChanged)
 
 public:
     explicit TerminalSession(QObject* parent = nullptr);
@@ -31,11 +32,14 @@ public:
     [[nodiscard]] bool bracketedPaste() const;
     [[nodiscard]] int rows() const noexcept;
     [[nodiscard]] int columns() const noexcept;
+    [[nodiscard]] QString workingDirectory() const;
     [[nodiscard]] const TerminalScreen& screen() const noexcept;
 
 public slots:
     void startDefaultShell();
+    void startDefaultShellInDirectory(const QString& workingDirectory);
     void startShell(const QString& shellPath);
+    void startShellInDirectory(const QString& shellPath, const QString& workingDirectory);
     void sendText(const QString& text);
     void sendBytes(const QByteArray& bytes);
     void pasteClipboard();
@@ -43,6 +47,8 @@ public slots:
     void sendSuspend();
     void clearDisplay();
     void resizeTerminal(int rows, int columns);
+    void refreshWorkingDirectory();
+    void setInitialWorkingDirectory(const QString& workingDirectory);
 
 signals:
     void screenChanged();
@@ -52,6 +58,7 @@ signals:
     void processIdChanged();
     void terminalModesChanged();
     void terminalSizeChanged();
+    void workingDirectoryChanged();
 
 private:
     void consumeOutput(const QByteArray& bytes);
@@ -63,4 +70,5 @@ private:
     VtParser m_parser;
     QString m_title{QStringLiteral("Shell")};
     QString m_shell;
+    QString m_workingDirectory;
 };
