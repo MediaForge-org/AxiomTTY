@@ -1,59 +1,58 @@
 import QtQuick
 import QtQuick.Layouts
-import TerminalCpp
+import AxiomTTY
 
 Rectangle {
     id: root
+
     required property string shell
-    required property int processId
     required property bool running
 
-    implicitHeight: 28
-    color: Theme.panel
+    readonly property string shellName: {
+        if (root.shell.length === 0)
+            return "shell"
+        const parts = root.shell.split("/")
+        return parts.length > 0 ? parts[parts.length - 1] : root.shell
+    }
+
+    implicitHeight: Theme.statusHeight
+    color: Theme.background
 
     Rectangle {
         anchors.top: parent.top
         width: parent.width
         height: 1
-        color: Theme.border
+        color: Theme.borderInactive
     }
 
     RowLayout {
         anchors.fill: parent
-        anchors.leftMargin: 12
-        anchors.rightMargin: 12
-        spacing: 10
+        anchors.leftMargin: 14
+        anchors.rightMargin: 14
+        spacing: 8
 
-        Text {
-            text: root.running ? "RUNNING" : "STOPPED"
-            color: root.running ? Theme.success : Theme.textMuted
-            font.pixelSize: 9
-            font.letterSpacing: 1.0
+        Rectangle {
+            Layout.preferredWidth: 5
+            Layout.preferredHeight: 5
+            radius: 3
+            color: root.running ? Theme.success : Theme.textFaint
         }
 
-        Rectangle { width: 1; height: 12; color: Theme.border }
-
         Text {
-            text: root.shell.length > 0 ? root.shell : "shell"
-            color: Theme.textMuted
-            font.pixelSize: 11
-            elide: Text.ElideMiddle
+            text: root.running ? root.shellName : "shell stopped"
+            color: root.running ? Theme.textMuted : Theme.textFaint
+            font.family: "sans-serif"
+            font.pixelSize: 10
         }
 
         Item { Layout.fillWidth: true }
 
         Text {
-            text: root.processId > 0 ? "PID " + root.processId : "NO PROCESS"
-            color: Theme.textFaint
-            font.pixelSize: 10
-        }
-
-        Rectangle { width: 1; height: 12; color: Theme.border }
-
-        Text {
             text: "UTF-8"
             color: Theme.textFaint
-            font.pixelSize: 10
+            font.family: "sans-serif"
+            font.pixelSize: 9
+            font.letterSpacing: 0.4
         }
     }
 }

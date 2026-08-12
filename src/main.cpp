@@ -1,4 +1,6 @@
 #include <QGuiApplication>
+
+#include <clocale>
 #include <QQmlApplicationEngine>
 #include <QQmlContext>
 #include <QTimer>
@@ -9,11 +11,12 @@
 
 int main(int argc, char* argv[])
 {
+    std::setlocale(LC_CTYPE, "");
     QGuiApplication app(argc, argv);
-    QGuiApplication::setApplicationName(QStringLiteral("TerminalCpp"));
-    QGuiApplication::setOrganizationName(QStringLiteral("TerminalCpp"));
+    QGuiApplication::setApplicationName(QStringLiteral("AxiomTTY"));
+    QGuiApplication::setOrganizationName(QStringLiteral("MediaForge"));
 
-    qmlRegisterType<TerminalView>("TerminalCpp.Native", 1, 0, "TerminalView");
+    qmlRegisterType<TerminalView>("AxiomTTY.Native", 1, 0, "TerminalView");
 
     TerminalSession terminalSession;
 
@@ -27,7 +30,7 @@ int main(int argc, char* argv[])
         [] { QCoreApplication::exit(EXIT_FAILURE); },
         Qt::QueuedConnection);
 
-    engine.loadFromModule("TerminalCpp", "Main");
+    engine.loadFromModule("AxiomTTY", "Main");
 
     QTimer::singleShot(0, &terminalSession, &TerminalSession::startDefaultShell);
 

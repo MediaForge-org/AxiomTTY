@@ -4,6 +4,7 @@
 #include "TerminalScreen.h"
 #include "VtParser.h"
 
+#include <QByteArray>
 #include <QObject>
 #include <QString>
 
@@ -36,6 +37,7 @@ public slots:
     void startDefaultShell();
     void startShell(const QString& shellPath);
     void sendText(const QString& text);
+    void sendBytes(const QByteArray& bytes);
     void pasteClipboard();
     void sendInterrupt();
     void sendSuspend();

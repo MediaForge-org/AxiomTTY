@@ -1,11 +1,15 @@
 #pragma once
 
 #include <QPoint>
+#include <QPointF>
 #include <QPointer>
 #include <QQuickPaintedItem>
+#include <QTimer>
 
 #include <utility>
 
+class QFocusEvent;
+class QHoverEvent;
 class QKeyEvent;
 class QMouseEvent;
 class QWheelEvent;
@@ -61,22 +65,32 @@ signals:
 protected:
     void geometryChange(const QRectF& newGeometry, const QRectF& oldGeometry) override;
     void keyPressEvent(QKeyEvent* event) override;
+    void focusInEvent(QFocusEvent* event) override;
+    void focusOutEvent(QFocusEvent* event) override;
     void mousePressEvent(QMouseEvent* event) override;
     void mouseMoveEvent(QMouseEvent* event) override;
     void mouseReleaseEvent(QMouseEvent* event) override;
     void wheelEvent(QWheelEvent* event) override;
+    void hoverMoveEvent(QHoverEvent* event) override;
 
 private:
     [[nodiscard]] QPoint cellAt(const QPointF& position) const;
+    [[nodiscard]] QPoint viewportCellAt(const QPointF& position) const;
     void sendSequence(const QString& sequence);
+    void sendMouseReport(int buttonCode, const QPointF& position, bool release, bool motion);
+    [[nodiscard]] bool terminalOwnsMouse(const Qt::KeyboardModifiers& modifiers) const noexcept;
     [[nodiscard]] bool isCellSelected(int row, int column) const noexcept;
     [[nodiscard]] std::pair<QPoint, QPoint> normalizedSelection() const noexcept;
     [[nodiscard]] int visibleHistoryStart() const noexcept;
     void setSelectionEnd(const QPoint& cell);
     void scrollByRows(int rows);
+    void updateSelectionAutoScroll(const QPointF& position);
+    void stopSelectionAutoScroll();
+    void autoScrollSelection();
     void clampScrollbackOffset();
     void updateMetrics();
     void updateTerminalSize();
+    void wakeCursor();
 
     QPointer<TerminalSession> m_session;
     QString m_fontFamily;
@@ -90,4 +104,11 @@ private:
     QPoint m_selectionStart{0, 0}; // x = column, y = absolute history row
     QPoint m_selectionEnd{0, 0};
     int m_scrollbackOffset{0};
+
+    QTimer m_cursorBlinkTimer;
+    bool m_cursorBlinkOn{true};
+
+    QTimer m_selectionAutoScrollTimer;
+    QPointF m_lastSelectionPointer{};
+    int m_selectionAutoScrollRows{0};
 };

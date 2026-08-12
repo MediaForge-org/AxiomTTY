@@ -27,7 +27,7 @@ int main()
     const int flags = ::fcntl(masterFd, F_GETFL, 0);
     ::fcntl(masterFd, F_SETFL, flags | O_NONBLOCK);
 
-    const std::string command = "printf '__TERMINALCPP_INPUT_OK__\\n'\r";
+    const std::string command = "printf '__AXIOMTTY_INPUT_OK__\\n'\r";
     if (::write(masterFd, command.data(), command.size()) < 0) {
         std::cerr << "write failed: " << std::strerror(errno) << '\n';
         return 2;
@@ -41,7 +41,7 @@ int main()
         const ssize_t count = ::read(masterFd, buffer.data(), buffer.size());
         if (count > 0) {
             output.append(buffer.data(), static_cast<std::size_t>(count));
-            found = output.find("__TERMINALCPP_INPUT_OK__") != std::string::npos;
+            found = output.find("__AXIOMTTY_INPUT_OK__") != std::string::npos;
         } else if (count < 0 && errno != EAGAIN && errno != EWOULDBLOCK && errno != EINTR) {
             break;
         }

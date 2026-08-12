@@ -98,6 +98,13 @@ void TerminalSession::sendText(const QString& text)
     }
 }
 
+void TerminalSession::sendBytes(const QByteArray& bytes)
+{
+    if (m_process.isRunning() && !bytes.isEmpty()) {
+        m_process.write(bytes);
+    }
+}
+
 void TerminalSession::pasteClipboard()
 {
     if (!m_process.isRunning()) {
@@ -157,12 +164,21 @@ void TerminalSession::consumeOutput(const QByteArray& bytes)
 {
     const bool oldApplicationCursorKeys = m_screen.applicationCursorKeys();
     const bool oldBracketedPaste = m_screen.bracketedPaste();
+    const bool oldSynchronizedOutput = m_screen.synchronizedOutput();
 
     m_parser.consume(bytes);
-    emit screenChanged();
+
+    // DEC private mode 2026 lets TUIs submit a batch of screen changes without
+    // exposing every intermediate frame. While synchronization is active we
+    // keep updating the model but defer the expensive GUI repaint until the
+    // application ends the synchronized update.
+    if (!m_screen.synchronizedOutput()) {
+        emit screenChanged();
+    }
 
     if (oldApplicationCursorKeys != m_screen.applicationCursorKeys()
-        || oldBracketedPaste != m_screen.bracketedPaste()) {
+        || oldBracketedPaste != m_screen.bracketedPaste()
+        || oldSynchronizedOutput != m_screen.synchronizedOutput()) {
         emit terminalModesChanged();
     }
 }

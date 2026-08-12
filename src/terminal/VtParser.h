@@ -25,7 +25,8 @@ private:
         Escape,
         Csi,
         Osc,
-        OscEscape
+        OscEscape,
+        Charset
     };
 
     void flushText();
@@ -36,6 +37,8 @@ private:
     void applySgr(const QList<int>& parameters);
     void applyPrivateMode(const QList<int>& parameters, bool enabled);
     void sendResponse(const QByteArray& response);
+    void finishCharset(unsigned char byte);
+    [[nodiscard]] QString mapDecSpecial(unsigned char byte) const;
 
     [[nodiscard]] QList<int> parseParameters(const QByteArray& text) const;
     [[nodiscard]] static int parameterOr(const QList<int>& parameters, int index, int fallback, bool zeroUsesFallback = true);
@@ -48,4 +51,8 @@ private:
     QStringDecoder m_utf8Decoder{QStringDecoder::Utf8};
     std::function<void(const QByteArray&)> m_responseHandler;
     std::function<void(const QString&)> m_titleHandler;
+    bool m_g0SpecialGraphics{false};
+    bool m_g1SpecialGraphics{false};
+    bool m_useG1{false};
+    int m_charsetTarget{0};
 };

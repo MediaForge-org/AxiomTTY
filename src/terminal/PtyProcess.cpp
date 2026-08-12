@@ -81,7 +81,7 @@ bool PtyProcess::start(
 
         ::setenv("TERM", "xterm-256color", 1);
         ::setenv("COLORTERM", "truecolor", 1);
-        ::setenv("TERM_PROGRAM", "TerminalCpp", 1);
+        ::setenv("TERM_PROGRAM", "AxiomTTY", 1);
 
         std::vector<QByteArray> encodedArguments;
         encodedArguments.reserve(static_cast<size_t>(arguments.size()) + 1U);

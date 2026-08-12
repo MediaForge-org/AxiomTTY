@@ -1,17 +1,34 @@
 import QtQuick
-import TerminalCpp
-import TerminalCpp.Native
+import AxiomTTY
+import AxiomTTY.Native
 
 FocusScope {
     id: root
     focus: true
+
     property bool copyNotice: false
+    property bool resizeNotice: false
 
     Timer {
         id: copyNoticeTimer
-        interval: 900
+        interval: 850
         repeat: false
         onTriggered: root.copyNotice = false
+    }
+
+    Timer {
+        id: resizeNoticeTimer
+        interval: 700
+        repeat: false
+        onTriggered: root.resizeNotice = false
+    }
+
+    Connections {
+        target: terminalSession
+        function onTerminalSizeChanged() {
+            root.resizeNotice = true
+            resizeNoticeTimer.restart()
+        }
     }
 
     Rectangle {
@@ -21,12 +38,12 @@ FocusScope {
         TerminalView {
             id: terminalView
             anchors.fill: parent
-            anchors.leftMargin: 14
-            anchors.rightMargin: 14
-            anchors.topMargin: 10
-            anchors.bottomMargin: 10
+            anchors.leftMargin: 16
+            anchors.rightMargin: 16
+            anchors.topMargin: 12
+            anchors.bottomMargin: 12
             session: terminalSession
-            fontPixelSize: 14
+            fontPixelSize: Theme.terminalFontSize
             focus: true
 
             onSelectionCopied: {
@@ -36,37 +53,45 @@ FocusScope {
         }
 
         Rectangle {
+            id: hintBadge
             anchors.right: parent.right
             anchors.bottom: parent.bottom
             anchors.rightMargin: 12
-            anchors.bottomMargin: 8
-            width: inputHint.implicitWidth + 14
-            height: 22
+            anchors.bottomMargin: 9
+            width: hintText.implicitWidth + 14
+            height: 21
+            visible: hintText.text.length > 0
+            opacity: visible ? 0.92 : 0.0
             color: Theme.panel
             border.width: 1
-            border.color: terminalView.activeFocus ? Theme.borderStrong : Theme.border
+            border.color: Theme.border
             radius: Theme.radiusSmall
-            opacity: 0.80
+
+            Behavior on opacity {
+                NumberAnimation { duration: 90 }
+            }
 
             Text {
-                id: inputHint
+                id: hintText
                 anchors.centerIn: parent
                 text: !terminalSession.running
                       ? "SHELL STOPPED"
                       : root.copyNotice
                         ? "COPIED"
                         : terminalView.hasSelection
-                          ? "CTRL+C COPY"
+                          ? "CTRL+C  COPY"
                           : terminalView.scrollbackOffset > 0
-                            ? "SCROLLBACK -" + terminalView.scrollbackOffset
-                            : terminalView.activeFocus
-                              ? terminalSession.columns + "×" + terminalSession.rows
-                              : "CLICK TO TYPE"
-                color: root.copyNotice || (terminalView.activeFocus && terminalSession.running)
-                       ? Theme.accent
-                       : Theme.textFaint
+                            ? "SCROLLBACK  -" + terminalView.scrollbackOffset
+                            : root.resizeNotice
+                              ? terminalSession.columns + " × " + terminalSession.rows
+                              : !terminalView.activeFocus
+                                ? "CLICK TO TYPE"
+                                : ""
+                color: root.copyNotice ? Theme.accent : Theme.textFaint
+                font.family: "sans-serif"
                 font.pixelSize: 9
-                font.letterSpacing: 0.8
+                font.weight: Font.Medium
+                font.letterSpacing: 0.45
             }
         }
     }

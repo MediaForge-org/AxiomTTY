@@ -1,8 +1,8 @@
 # Roadmap
 
-Milestone labels are used during pre-alpha development. A public semantic
-version such as 0.1.0 is intentionally deferred until the application is
-actually useful as a daily terminal.
+Milestone labels are used during pre-alpha development. A public semantic version
+such as `0.1.0` is intentionally deferred until AxiomTTY is actually useful as a
+daily terminal.
 
 ## M0 — Bootstrap / PTY input — DONE
 - C++23 / CMake / Qt 6 Quick
@@ -12,31 +12,53 @@ actually useful as a daily terminal.
 - first restrained UI design system
 
 ## M1 — Terminal core — IN PROGRESS
-Completed through M1 R4:
+
+Completed through M1 R8:
 - VT parser foundation
 - screen/cell buffer
-- SGR 16/256/true-color
-- cursor movement and visibility
+- incremental UTF-8 decoding
+- single-width, double-width and combining-character cell handling
+- SGR 16/256/True Color
+- cursor movement, visibility and DECSCUSR cursor shapes
 - alternate screen
+- DEC Special Graphics line drawing
 - bracketed paste
 - application cursor mode
-- resize tied to rendered cell geometry
-- basic terminal responses and OSC title
+- origin mode and ANSI insert mode
+- basic device/status responses and OSC title
+- xterm mouse modes 1000/1002/1003 plus SGR mouse mode 1006
+- xterm focus reporting mode 1004
 - custom C++ terminal surface
-- visible scrollback viewport (mouse wheel and Shift+PageUp/PageDown)
-- cell-based mouse selection and clipboard copy
+- PTY resize tied to rendered cell geometry
+- improved vertical resize preservation
+- 5000-line scrollback viewport
+- cell-based mouse selection and clipboard copy across full scrollback history
+- edge auto-scroll while extending selections beyond the viewport
+- selection persistence while manually navigating scrollback
+- xterm/DEC tab-stop controls and CSI REP
+- SGR faint/strikethrough rendering
+- alternate-scroll mode 1007
+- synchronized-output mode 2026 with repaint batching
+- OSC 10/11 default color queries
+- richer modified navigation/function key reporting
+- soft-wrap-aware copied text
 - context-sensitive `Ctrl+C`: copy selection or send Unix `^C`
+- `Ctrl+V` desktop-style paste
+- automated VT core, PTY and interactive-shell smoke tests
+- Fedora 44 GitHub Actions build/test workflow
 
 Remaining M1 refinements:
-- Unicode width/combining handling
+- full grapheme-cluster handling for complex emoji/ZWJ/flags
+- better horizontal resize/reflow of already wrapped history
 - scrollback search and polished scrollbar UI
-- soft-wrap-aware selection
-- mouse reporting
-- more xterm/DEC modes
-- performance renderer refinement
+- more xterm/DEC modes and terminal query responses
+- richer modified-key reporting
+- more complete mouse protocol edge cases
+- renderer performance refinement
+- compatibility fixes discovered by `nano`, `vim`, `htop`, `btop`, `less`, `ssh`, `sudo`
 
-Compatibility probes: `sudo`, `ssh`, `nano`, `vim`, `htop`, `btop`, `less`.
-Passing every probe perfectly is the M1 exit criterion, not a promise for an individual R1/R2/R3/R4 refinement.
+M1 exit criterion: the compatibility probes should behave correctly enough that
+AxiomTTY can serve as a normal interactive Linux terminal for everyday use.
 
 ## M2 — Sessions, tabs and splits
 - many simultaneous PTYs
@@ -46,10 +68,9 @@ Passing every probe perfectly is the M1 exit criterion, not a promise for an ind
 - notifications for completed long-running commands
 
 ## M3 — Product-quality interaction
-- searchable history
+- searchable scrollback/history
 - completion UI
 - link/path detection
-- find in scrollback
 - command palette
 - profiles and themes
 
@@ -85,3 +106,35 @@ The system shell remains available even after the own shell becomes usable.
 - SSH profiles
 - plugin/extension API
 - completion providers
+
+
+## M1 R6 – UI Foundation
+
+- Custom dark client-side window chrome
+- Unified header + active-session strip
+- Native compositor move/resize for frameless window
+- Quiet status bar
+- Transient resize feedback
+- Centralized AxiomTTY UI palette and metrics
+
+
+## M1 R7 – Selection & Scrollback UX
+
+- Selection is stored in history coordinates rather than viewport-only text
+- Dragging near/outside the top or bottom edge auto-scrolls through history
+- Auto-scroll speed increases with pointer distance beyond the edge
+- Manual wheel/PageUp/PageDown scrolling no longer destroys an existing selection
+- Ctrl+C can copy selections spanning many non-visible scrollback rows
+
+
+## M1 R8 – TUI Compatibility
+
+- Added standard/custom horizontal tab stop handling (HTS, TBC, CHT, CBT)
+- Added CSI REP for repeated graphic characters
+- Added SGR faint and strikethrough attributes
+- Added xterm alternate-scroll mode 1007
+- Added DEC synchronized-output mode 2026 and deferred GUI repaint while active
+- Added OSC 10/11 foreground/background color query replies
+- Improved DECSC/DECRC state preservation
+- Added modifier-aware Insert/Delete/PageUp/PageDown and F1–F12 sequences
+- Expanded smoke tests around the new VT behavior

@@ -26,4 +26,4 @@ lines. Its command switch includes these command names:
 Standard Linux tools remain the real system tools. For example `grep` resolves to
 the installed `grep`; `dnf` is the real Fedora package manager; `git` is the real
 Git executable. The own shell will implement only shell semantics and true
-built-ins, plus deliberate TerminalCpp extensions.
+built-ins, plus deliberate AxiomTTY extensions.

@@ -1,14 +1,16 @@
 import QtQuick
-import QtQuick.Controls
 import QtQuick.Layouts
-import TerminalCpp
+import QtQuick.Window
+import AxiomTTY
 
 Rectangle {
     id: root
+
     required property string title
     required property bool running
+    required property var appWindow
 
-    implicitHeight: 44
+    implicitHeight: Theme.headerHeight
     color: Theme.panel
 
     Rectangle {
@@ -20,79 +22,134 @@ Rectangle {
 
     RowLayout {
         anchors.fill: parent
-        anchors.leftMargin: 10
-        anchors.rightMargin: 10
-        spacing: 6
+        spacing: 0
 
-        ToolButton {
-            id: addButton
-            text: "+"
-            enabled: false
-            flat: true
-            ToolTip.visible: hovered
-            ToolTip.text: "Multiple sessions come in milestone 2"
+        Item {
+            Layout.preferredWidth: 116
+            Layout.fillHeight: true
 
-            contentItem: Text {
-                text: addButton.text
-                color: addButton.enabled ? Theme.text : Theme.textFaint
-                font.pixelSize: 20
-                horizontalAlignment: Text.AlignHCenter
-                verticalAlignment: Text.AlignVCenter
-            }
-            background: Rectangle {
-                color: addButton.hovered ? Theme.raised : "transparent"
-                radius: Theme.radiusSmall
+            Row {
+                anchors.left: parent.left
+                anchors.leftMargin: 14
+                anchors.verticalCenter: parent.verticalCenter
+                spacing: 0
+
+                Text {
+                    text: "Axiom"
+                    color: Theme.text
+                    font.family: "sans-serif"
+                    font.pixelSize: 13
+                    font.weight: Font.DemiBold
+                    font.letterSpacing: 0.15
+                }
+                Text {
+                    text: "TTY"
+                    color: Theme.accent
+                    font.family: "sans-serif"
+                    font.pixelSize: 13
+                    font.weight: Font.DemiBold
+                    font.letterSpacing: 0.15
+                }
             }
         }
 
         Rectangle {
-            Layout.preferredWidth: 210
-            Layout.fillHeight: true
-            color: Theme.raised
+            Layout.preferredWidth: 1
+            Layout.preferredHeight: 20
+            color: Theme.border
+        }
+
+        Item {
+            Layout.leftMargin: 8
+            Layout.preferredWidth: 270
+            Layout.preferredHeight: 32
 
             Rectangle {
-                anchors.bottom: parent.bottom
-                width: parent.width
-                height: 2
-                color: Theme.accent
+                anchors.fill: parent
+                color: Theme.tabActive
+                border.width: 1
+                border.color: Theme.border
+                radius: Theme.radiusSmall
+            }
+
+            Rectangle {
+                width: 2
+                height: 18
+                anchors.left: parent.left
+                anchors.leftMargin: 1
+                anchors.verticalCenter: parent.verticalCenter
+                color: root.running ? Theme.accent : Theme.textFaint
             }
 
             RowLayout {
                 anchors.fill: parent
-                anchors.leftMargin: 13
+                anchors.leftMargin: 12
                 anchors.rightMargin: 11
-                spacing: 9
+                spacing: 8
 
                 Rectangle {
-                    width: 7
-                    height: 7
-                    radius: 4
+                    Layout.preferredWidth: 6
+                    Layout.preferredHeight: 6
+                    radius: 3
                     color: root.running ? Theme.success : Theme.textFaint
                 }
 
                 Text {
                     Layout.fillWidth: true
-                    text: root.title
+                    text: root.title.length > 0 ? root.title : "Shell"
                     color: Theme.text
                     elide: Text.ElideRight
-                    font.pixelSize: 13
-                }
-
-                Text {
-                    text: "×"
-                    color: Theme.textFaint
-                    font.pixelSize: 15
+                    font.family: "sans-serif"
+                    font.pixelSize: 12
+                    font.weight: Font.Medium
                 }
             }
         }
 
-        Item { Layout.fillWidth: true }
+        // Empty header space doubles as the native drag area. Qt delegates the
+        // actual move operation to the compositor, which keeps Wayland snapping.
+        Item {
+            id: dragRegion
+            Layout.fillWidth: true
+            Layout.fillHeight: true
 
-        Text {
-            text: "LINUX"
-            color: Theme.textFaint
-            font.pixelSize: 10
-            font.letterSpacing: 1.4
+            MouseArea {
+                anchors.fill: parent
+                acceptedButtons: Qt.LeftButton
+                onPressed: root.appWindow.startSystemMove()
+                onDoubleClicked: {
+                    if (root.appWindow.visibility === Window.Maximized)
+                        root.appWindow.showNormal()
+                    else
+                        root.appWindow.showMaximized()
+                }
+            }
+        }
+
+        Row {
+            Layout.fillHeight: true
+            spacing: 0
+
+            WindowControlButton {
+                kind: "minimize"
+                onClicked: root.appWindow.showMinimized()
+            }
+
+            WindowControlButton {
+                kind: root.appWindow.visibility === Window.Maximized ? "restore" : "maximize"
+                onClicked: {
+                    if (root.appWindow.visibility === Window.Maximized)
+                        root.appWindow.showNormal()
+                    else
+                        root.appWindow.showMaximized()
+                }
+            }
+
+            WindowControlButton {
+                kind: "close"
+                dangerous: true
+                onClicked: root.appWindow.close()
+            }
         }
     }
 }
