@@ -11,7 +11,7 @@ set(CMAKE_CXX_EXTENSIONS OFF)
 set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 
 set(AXIOMTTY_DEVELOPMENT_STAGE "pre-alpha")
-set(AXIOMTTY_MILESTONE "M2-tabs-sessions-r1")
+set(AXIOMTTY_MILESTONE "M2-splits-r2")
 
 option(AXIOMTTY_WARNINGS_AS_ERRORS "Treat compiler warnings as errors" OFF)
 option(AXIOMTTY_BUILD_TESTS "Build terminal core smoke tests" ON)
@@ -31,6 +31,8 @@ qt_add_executable(axiomtty
     src/terminal/PtyProcess.cpp
     src/terminal/SessionManager.cpp
     src/terminal/SessionManager.h
+    src/terminal/SplitNode.cpp
+    src/terminal/SplitNode.h
     src/terminal/PtyProcess.h
     src/terminal/TerminalSession.cpp
     src/terminal/TerminalSession.h
@@ -42,7 +44,9 @@ qt_add_executable(axiomtty
 set(AXIOMTTY_QML_FILES
     qml/Main.qml
     qml/TerminalPane.qml
+    qml/SplitNodeView.qml
     qml/SessionTab.qml
+    qml/SplitControlButton.qml
     qml/TopBar.qml
     qml/StatusBar.qml
     qml/Theme.qml
@@ -99,6 +103,24 @@ if(AXIOMTTY_BUILD_TESTS)
     target_link_libraries(vt_core_smoke PRIVATE Qt6::Core Qt6::Gui)
     axiomtty_enable_warnings(vt_core_smoke)
     add_test(NAME vt_core_smoke COMMAND vt_core_smoke)
+
+    qt_add_executable(split_tree_smoke
+        tests/split_tree_smoke.cpp
+        src/terminal/SplitNode.cpp
+        src/terminal/SplitNode.h
+        src/terminal/TerminalSession.cpp
+        src/terminal/TerminalSession.h
+        src/terminal/PtyProcess.cpp
+        src/terminal/PtyProcess.h
+        ${AXIOMTTY_CORE_SOURCES}
+    )
+    target_include_directories(split_tree_smoke PRIVATE src)
+    target_link_libraries(split_tree_smoke PRIVATE Qt6::Core Qt6::Gui)
+    if(UTIL_LIBRARY)
+        target_link_libraries(split_tree_smoke PRIVATE ${UTIL_LIBRARY})
+    endif()
+    axiomtty_enable_warnings(split_tree_smoke)
+    add_test(NAME split_tree_smoke COMMAND split_tree_smoke)
 
     add_executable(pty_smoke tests/pty_smoke.cpp)
     add_executable(pty_shell_input_smoke tests/pty_shell_input_smoke.cpp)

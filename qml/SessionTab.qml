@@ -9,6 +9,7 @@ Item {
     required property bool active
     required property bool running
     required property int tabIndex
+    required property int paneCount
 
     signal selected()
     signal closeRequested()
@@ -54,6 +55,15 @@ Item {
             font.family: "sans-serif"
             font.pixelSize: 11
             font.weight: root.active ? Font.Medium : Font.Normal
+        }
+
+        Text {
+            visible: root.paneCount > 1
+            text: root.paneCount
+            color: root.active ? Theme.accent : Theme.textFaint
+            font.family: "sans-serif"
+            font.pixelSize: 9
+            font.weight: Font.Medium
         }
 
         Item {

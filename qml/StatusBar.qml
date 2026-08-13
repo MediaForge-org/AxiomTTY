@@ -6,7 +6,8 @@ Rectangle {
     id: root
 
     required property var session
-    required property int sessionCount
+    required property int tabCount
+    required property int paneCount
 
     readonly property string shellName: {
         if (!root.session || root.session.shell.length === 0)
@@ -64,7 +65,23 @@ Rectangle {
         Item { Layout.fillWidth: true }
 
         Text {
-            text: root.sessionCount + (root.sessionCount === 1 ? " SESSION" : " SESSIONS")
+            visible: root.paneCount > 1
+            text: root.paneCount + (root.paneCount === 1 ? " PANE" : " PANES")
+            color: Theme.accent
+            font.family: "sans-serif"
+            font.pixelSize: 9
+            font.letterSpacing: 0.35
+        }
+
+        Rectangle {
+            visible: root.paneCount > 1
+            Layout.preferredWidth: 1
+            Layout.preferredHeight: 10
+            color: Theme.border
+        }
+
+        Text {
+            text: root.tabCount + (root.tabCount === 1 ? " TAB" : " TABS")
             color: Theme.textFaint
             font.family: "sans-serif"
             font.pixelSize: 9

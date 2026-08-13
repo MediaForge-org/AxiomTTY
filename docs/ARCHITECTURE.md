@@ -11,9 +11,9 @@ reducing the design to a lowest common denominator.
 ```text
 QML chrome / interaction
   |
-SessionManager (tabs; split tree next)
+SessionManager (tabs + active pane)
   |
-TerminalView <-> active TerminalSession
+SplitNode tree -> TerminalView leaves <-> TerminalSession
   |
 VT parser -> TerminalScreen cell grid       Own shell (later)
   |                                         |-- lexer/parser
@@ -26,7 +26,7 @@ The GUI does not own process semantics. The terminal emulator does not know
 about future workspaces or package-manager UI. The future own shell remains a
 separate component and can later be built as a standalone executable.
 
-## Current milestone — M2.1 Tabs & Sessions
+## Current milestone — M2.2 Split Panes
 
 Implemented:
 
@@ -58,17 +58,25 @@ Implemented:
 Installed Linux commands continue to be real executables. `git`, `dnf`, `sudo`,
 `ssh`, `docker`, `cmake`, etc. are not reimplemented.
 
-### Session ownership
+### Session and split ownership
 
-`SessionManager` is now the application-level owner of terminal sessions. Each
-`TerminalSession` owns one PTY, one VT parser and one terminal screen model. Switching
-tabs only rebinds the `TerminalView` to another session; it does not recreate or pause
-the underlying process.
+`SessionManager` owns tabs and all `TerminalSession` objects. Each tab owns a binary
+`SplitNode` tree. Every leaf of that tree points at one independent `TerminalSession`,
+and every `TerminalSession` owns one PTY, one VT parser and one terminal screen model.
+Switching tabs or panes never recreates or pauses the underlying processes.
 
-New tabs query `/proc/<shell-pid>/cwd` and start in the active shell's current directory.
-This keeps Linux shell semantics while avoiding any attempt to infer a directory from
-prompt text. The same session objects are intended to become leaves in the M2 split
-tree, so tabs and splits will share one lifecycle model rather than separate hacks.
+Splitting a leaf mutates that leaf into a branch and creates two child leaves: the
+existing session and a newly created session. Horizontal branches render side-by-side;
+vertical branches render top/bottom. Because branches can contain further branches, the
+layout supports arbitrary nested combinations without a separate layout subsystem.
+
+When a pane closes, its sibling is promoted into the parent node. This collapses only
+the affected branch and preserves the rest of the tree. The tab tracks one active leaf
+for keyboard focus, status information and working-directory inheritance.
+
+New tabs and new split panes query `/proc/<shell-pid>/cwd` and start in the active
+shell's current directory. This keeps Linux shell semantics while avoiding any attempt
+to infer a directory from prompt text.
 
 ## Still incomplete inside M1
 

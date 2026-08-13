@@ -1,5 +1,6 @@
 import QtQuick
 import QtQuick.Layouts
+import QtQuick.Controls
 import QtQuick.Window
 import AxiomTTY
 
@@ -89,9 +90,26 @@ Rectangle {
             }
         }
 
+        Row {
+            Layout.leftMargin: 2
+            spacing: 0
+
+            SplitControlButton {
+                kind: "right"
+                toolTipText: "Split right  ·  Ctrl+Shift+D"
+                onClicked: root.sessionManager.splitRight()
+            }
+
+            SplitControlButton {
+                kind: "down"
+                toolTipText: "Split down  ·  Ctrl+Shift+E"
+                onClicked: root.sessionManager.splitDown()
+            }
+        }
+
         ListView {
             id: tabList
-            Layout.preferredWidth: Math.min(contentWidth, Math.max(190, root.width - 108 - 36 - 144 - 100))
+            Layout.preferredWidth: Math.min(contentWidth, Math.max(190, root.width - 108 - 36 - 60 - 144 - 100))
             Layout.preferredHeight: 32
             Layout.leftMargin: 4
             orientation: ListView.Horizontal

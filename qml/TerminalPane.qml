@@ -7,11 +7,25 @@ FocusScope {
     focus: true
 
     required property var session
+    property bool paneActive: true
 
     property bool copyNotice: false
     property bool resizeNotice: false
 
-    onSessionChanged: Qt.callLater(function() { terminalView.forceActiveFocus() })
+    signal activated()
+
+    function focusTerminal() {
+        terminalView.forceActiveFocus()
+    }
+
+    onSessionChanged: {
+        if (paneActive)
+            Qt.callLater(function() { terminalView.forceActiveFocus() })
+    }
+    onPaneActiveChanged: {
+        if (paneActive)
+            Qt.callLater(function() { terminalView.forceActiveFocus() })
+    }
 
     Timer {
         id: copyNoticeTimer
@@ -50,10 +64,33 @@ FocusScope {
             fontPixelSize: Theme.terminalFontSize
             focus: true
 
+            onActiveFocusChanged: {
+                if (activeFocus)
+                    root.activated()
+            }
+
             onSelectionCopied: {
                 root.copyNotice = true
                 copyNoticeTimer.restart()
             }
+        }
+
+        Rectangle {
+            anchors.fill: parent
+            color: "transparent"
+            border.width: root.paneActive ? 1 : 0
+            border.color: Theme.accentMuted
+            visible: root.paneActive
+        }
+
+        Rectangle {
+            width: 2
+            height: 22
+            anchors.left: parent.left
+            anchors.top: parent.top
+            anchors.topMargin: 10
+            color: root.paneActive ? Theme.accent : "transparent"
+            visible: root.paneActive
         }
 
         Rectangle {
@@ -102,5 +139,8 @@ FocusScope {
         }
     }
 
-    Component.onCompleted: terminalView.forceActiveFocus()
+    Component.onCompleted: {
+        if (paneActive)
+            terminalView.forceActiveFocus()
+    }
 }

@@ -60,11 +60,22 @@ Remaining M1 refinements:
 M1 exit criterion: the compatibility probes should behave correctly enough that
 AxiomTTY can serve as a normal interactive Linux terminal for everyday use.
 
-## M2 — Sessions, tabs and splits
-- many simultaneous PTYs
-- horizontal/vertical split tree
-- session lifecycle
-- tab renaming/pinning/reordering
+## M2 — Sessions, tabs and splits — IN PROGRESS
+
+Completed through M2.2:
+- many simultaneous PTYs across tabs
+- independent terminal state and scrollback per session
+- inherited Linux working directory for new tabs/panes
+- binary horizontal/vertical split tree with arbitrary nesting
+- draggable split handles with independent PTY resizing
+- active-pane tracking and keyboard pane navigation
+- branch collapse when a pane is closed
+
+Remaining M2 work:
+- pane/tab duplicate operations
+- tab rename/pin/reorder and drag between windows
+- directional pane navigation based on geometry
+- layout/session restore groundwork
 - notifications for completed long-running commands
 
 ## M3 — Product-quality interaction
@@ -150,3 +161,15 @@ The system shell remains available even after the own shell becomes usable.
 
 Next M2 work: split panes backed by the same session infrastructure, followed by richer
 tab lifecycle operations such as rename, reorder and duplicate.
+
+
+## M2.2 — Split Panes
+
+- Reworked each tab into a binary split tree whose leaves are real `TerminalSession`s
+- Added arbitrarily nested horizontal and vertical splits
+- Added split-right and split-down header controls and shortcuts
+- Split panes inherit the active pane's `/proc/<pid>/cwd`
+- Added draggable Qt Quick `SplitView` handles and per-pane PTY resizing
+- Added active-pane tracking, next/previous pane shortcuts and pane count indicators
+- Added branch collapse when closing a nested pane
+- Added split-tree smoke coverage plus a dedicated manual regression checklist

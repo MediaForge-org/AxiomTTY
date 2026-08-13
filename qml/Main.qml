@@ -29,16 +29,18 @@ ApplicationWindow {
             appWindow: root
         }
 
-        TerminalPane {
+        SplitNodeView {
             Layout.fillWidth: true
             Layout.fillHeight: true
-            session: sessions.activeSession
+            node: sessions.activeRoot
+            sessionManager: sessions
         }
 
         StatusBar {
             Layout.fillWidth: true
             session: sessions.activeSession
-            sessionCount: sessions.count
+            tabCount: sessions.count
+            paneCount: sessions.activePaneCount
         }
     }
 
@@ -153,6 +155,12 @@ ApplicationWindow {
                 sessions.activeSession.startDefaultShellInDirectory(sessions.activeSession.workingDirectory)
         }
     }
+
+    Shortcut { sequence: "Ctrl+Shift+D"; onActivated: sessions.splitRight() }
+    Shortcut { sequence: "Ctrl+Shift+E"; onActivated: sessions.splitDown() }
+    Shortcut { sequence: "Ctrl+Shift+X"; onActivated: sessions.closeActivePane() }
+    Shortcut { sequence: "Ctrl+Shift+Right"; onActivated: sessions.nextPane() }
+    Shortcut { sequence: "Ctrl+Shift+Left"; onActivated: sessions.previousPane() }
 
     Shortcut { sequence: "Alt+1"; onActivated: sessions.activateTabNumber(1) }
     Shortcut { sequence: "Alt+2"; onActivated: sessions.activateTabNumber(2) }

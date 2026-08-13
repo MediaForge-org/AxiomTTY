@@ -1,5 +1,6 @@
 #include "SessionManager.h"
 
+#include "SplitNode.h"
 #include "TerminalSession.h"
 
 #include <QDir>
@@ -24,7 +25,7 @@ int SessionManager::rowCount(const QModelIndex& parent) const
     if (parent.isValid()) {
         return 0;
     }
-    return static_cast<int>(m_sessions.size());
+    return static_cast<int>(m_tabs.size());
 }
 
 QVariant SessionManager::data(const QModelIndex& index, int role) const
@@ -33,18 +34,24 @@ QVariant SessionManager::data(const QModelIndex& index, int role) const
         return {};
     }
 
-    TerminalSession* session = m_sessions.at(index.row());
+    const TabState& tab = m_tabs.at(index.row());
+    TerminalSession* session = tab.activeSession;
+
     switch (role) {
     case SessionRole:
         return QVariant::fromValue(static_cast<QObject*>(session));
+    case RootRole:
+        return QVariant::fromValue(static_cast<QObject*>(tab.root));
     case TitleRole:
-        return displayTitle(session);
+        return displayTitle(tab);
     case RunningRole:
-        return session->running();
+        return anyRunning(tab);
     case WorkingDirectoryRole:
-        return session->workingDirectory();
+        return session != nullptr ? session->workingDirectory() : QString{};
     case ShellRole:
-        return session->shell();
+        return session != nullptr ? session->shell() : QString{};
+    case PaneCountRole:
+        return static_cast<int>(tab.sessions.size());
     default:
         return {};
     }
@@ -54,16 +61,31 @@ QHash<int, QByteArray> SessionManager::roleNames() const
 {
     return {
         {SessionRole, "sessionObject"},
+        {RootRole, "rootNode"},
         {TitleRole, "displayTitle"},
         {RunningRole, "isRunning"},
         {WorkingDirectoryRole, "workingDirectory"},
         {ShellRole, "shellPath"},
+        {PaneCountRole, "paneCount"},
     };
 }
 
 QObject* SessionManager::activeSession() const
 {
-    return sessionAt(m_currentIndex);
+    const TabState* tab = currentTab();
+    return tab != nullptr ? static_cast<QObject*>(tab->activeSession.data()) : nullptr;
+}
+
+QObject* SessionManager::activeRoot() const
+{
+    const TabState* tab = currentTab();
+    return tab != nullptr ? static_cast<QObject*>(tab->root) : nullptr;
+}
+
+int SessionManager::activePaneCount() const noexcept
+{
+    const TabState* tab = currentTab();
+    return tab != nullptr ? static_cast<int>(tab->sessions.size()) : 0;
 }
 
 int SessionManager::currentIndex() const noexcept
@@ -73,7 +95,7 @@ int SessionManager::currentIndex() const noexcept
 
 int SessionManager::count() const noexcept
 {
-    return static_cast<int>(m_sessions.size());
+    return static_cast<int>(m_tabs.size());
 }
 
 void SessionManager::newTab()
@@ -81,9 +103,15 @@ void SessionManager::newTab()
     const QString workingDirectory = inheritedWorkingDirectory();
     const int insertIndex = rowCount();
 
-    beginInsertRows(QModelIndex(), insertIndex, insertIndex);
     TerminalSession* session = createSession(workingDirectory);
-    m_sessions.push_back(session);
+    auto* root = new SplitNode(session, this);
+
+    beginInsertRows(QModelIndex(), insertIndex, insertIndex);
+    TabState tab;
+    tab.root = root;
+    tab.activeSession = session;
+    tab.sessions.push_back(session);
+    m_tabs.push_back(tab);
     endInsertRows();
     emit countChanged();
 
@@ -101,16 +129,25 @@ void SessionManager::closeTab(int index)
     const int oldCurrent = m_currentIndex;
 
     beginRemoveRows(QModelIndex(), index, index);
-    TerminalSession* session = m_sessions.takeAt(index);
+    TabState tab = m_tabs.takeAt(index);
     endRemoveRows();
     emit countChanged();
 
-    session->deleteLater();
+    if (tab.root != nullptr) {
+        tab.root->deleteLater();
+    }
+    for (TerminalSession* session : tab.sessions) {
+        if (session != nullptr) {
+            session->deleteLater();
+        }
+    }
 
-    if (m_sessions.isEmpty()) {
+    if (m_tabs.isEmpty()) {
         m_currentIndex = -1;
         emit currentIndexChanged();
         emit activeSessionChanged();
+        emit activeRootChanged();
+        emit activePaneCountChanged();
         newTab();
         return;
     }
@@ -126,8 +163,11 @@ void SessionManager::closeTab(int index)
         m_currentIndex = nextIndex;
         emit currentIndexChanged();
     }
+
     if (closingCurrent || index < oldCurrent) {
         emit activeSessionChanged();
+        emit activeRootChanged();
+        emit activePaneCountChanged();
     }
 }
 
@@ -165,6 +205,83 @@ void SessionManager::activateTabNumber(int number)
     }
 }
 
+void SessionManager::splitRight()
+{
+    splitActive(Qt::Horizontal);
+}
+
+void SessionManager::splitDown()
+{
+    splitActive(Qt::Vertical);
+}
+
+void SessionManager::closeActivePane()
+{
+    TabState* tab = currentTab();
+    if (tab == nullptr || tab->activeSession == nullptr) {
+        return;
+    }
+
+    if (tab->sessions.size() <= 1) {
+        closeTab(m_currentIndex);
+        return;
+    }
+
+    TerminalSession* closingSession = tab->activeSession;
+    TerminalSession* fallback = nullptr;
+    if (tab->root == nullptr || !tab->root->removeSession(closingSession, fallback)) {
+        return;
+    }
+
+    tab->sessions.removeOne(closingSession);
+    if (fallback == nullptr && tab->root != nullptr) {
+        fallback = tab->root->firstLeafSession();
+    }
+    tab->activeSession = fallback;
+    closingSession->deleteLater();
+
+    emitCurrentTabStateChanged({SessionRole, RootRole, TitleRole, RunningRole, WorkingDirectoryRole, ShellRole, PaneCountRole});
+    emit activeSessionChanged();
+    emit activeRootChanged();
+    emit activePaneCountChanged();
+}
+
+void SessionManager::activatePane(QObject* sessionObject)
+{
+    auto* session = qobject_cast<TerminalSession*>(sessionObject);
+    TabState* tab = currentTab();
+    if (session == nullptr || tab == nullptr || !tab->sessions.contains(session)) {
+        return;
+    }
+    setActivePane(*tab, session);
+}
+
+void SessionManager::nextPane()
+{
+    TabState* tab = currentTab();
+    if (tab == nullptr || tab->root == nullptr || tab->sessions.size() <= 1) {
+        return;
+    }
+
+    const QVector<TerminalSession*> leaves = tab->root->leafSessions();
+    const int current = leaves.indexOf(tab->activeSession);
+    const int next = current < 0 ? 0 : (current + 1) % leaves.size();
+    setActivePane(*tab, leaves.at(next));
+}
+
+void SessionManager::previousPane()
+{
+    TabState* tab = currentTab();
+    if (tab == nullptr || tab->root == nullptr || tab->sessions.size() <= 1) {
+        return;
+    }
+
+    const QVector<TerminalSession*> leaves = tab->root->leafSessions();
+    const int current = leaves.indexOf(tab->activeSession);
+    const int previous = current < 0 ? 0 : (current - 1 + leaves.size()) % leaves.size();
+    setActivePane(*tab, leaves.at(previous));
+}
+
 void SessionManager::setCurrentIndex(int index)
 {
     if (index < 0 || index >= rowCount() || index == m_currentIndex) {
@@ -174,6 +291,8 @@ void SessionManager::setCurrentIndex(int index)
     m_currentIndex = index;
     emit currentIndexChanged();
     emit activeSessionChanged();
+    emit activeRootChanged();
+    emit activePaneCountChanged();
 }
 
 TerminalSession* SessionManager::createSession(const QString& workingDirectory)
@@ -184,16 +303,33 @@ TerminalSession* SessionManager::createSession(const QString& workingDirectory)
     return session;
 }
 
-TerminalSession* SessionManager::sessionAt(int index) const
+SessionManager::TabState* SessionManager::currentTab()
+{
+    if (m_currentIndex < 0 || m_currentIndex >= rowCount()) {
+        return nullptr;
+    }
+    return &m_tabs[m_currentIndex];
+}
+
+const SessionManager::TabState* SessionManager::currentTab() const
+{
+    if (m_currentIndex < 0 || m_currentIndex >= rowCount()) {
+        return nullptr;
+    }
+    return &m_tabs.at(m_currentIndex);
+}
+
+TerminalSession* SessionManager::sessionAtTab(int index) const
 {
     if (index < 0 || index >= rowCount()) {
         return nullptr;
     }
-    return m_sessions.at(index);
+    return m_tabs.at(index).activeSession;
 }
 
-QString SessionManager::displayTitle(const TerminalSession* session) const
+QString SessionManager::displayTitle(const TabState& tab) const
 {
+    const TerminalSession* session = tab.activeSession;
     if (session == nullptr) {
         return QStringLiteral("Shell");
     }
@@ -224,7 +360,7 @@ QString SessionManager::displayTitle(const TerminalSession* session) const
 
 QString SessionManager::inheritedWorkingDirectory() const
 {
-    TerminalSession* current = sessionAt(m_currentIndex);
+    TerminalSession* current = sessionAtTab(m_currentIndex);
     if (current == nullptr) {
         return QDir::homePath();
     }
@@ -232,6 +368,26 @@ QString SessionManager::inheritedWorkingDirectory() const
     current->refreshWorkingDirectory();
     const QString directory = current->workingDirectory();
     return directory.isEmpty() ? QDir::homePath() : directory;
+}
+
+int SessionManager::tabIndexForSession(const TerminalSession* session) const
+{
+    if (session == nullptr) {
+        return -1;
+    }
+    for (int index = 0; index < rowCount(); ++index) {
+        if (m_tabs.at(index).sessions.contains(const_cast<TerminalSession*>(session))) {
+            return index;
+        }
+    }
+    return -1;
+}
+
+bool SessionManager::anyRunning(const TabState& tab) const
+{
+    return std::any_of(tab.sessions.cbegin(), tab.sessions.cend(), [](const TerminalSession* session) {
+        return session != nullptr && session->running();
+    });
 }
 
 void SessionManager::connectSession(TerminalSession* session)
@@ -252,21 +408,76 @@ void SessionManager::connectSession(TerminalSession* session)
 
 void SessionManager::notifySessionChanged(TerminalSession* session, const QVector<int>& roles)
 {
-    const int index = m_sessions.indexOf(session);
+    const int index = tabIndexForSession(session);
     if (index < 0) {
         return;
     }
+
     const QModelIndex modelIndex = createIndex(index, 0);
     emit dataChanged(modelIndex, modelIndex, roles);
 
-    if (index == m_currentIndex) {
+    if (index == m_currentIndex && currentTab() != nullptr && currentTab()->activeSession == session) {
         emit activeSessionChanged();
     }
 }
 
 void SessionManager::refreshWorkingDirectories()
 {
-    for (TerminalSession* session : m_sessions) {
-        session->refreshWorkingDirectory();
+    for (TabState& tab : m_tabs) {
+        for (TerminalSession* session : tab.sessions) {
+            if (session != nullptr) {
+                session->refreshWorkingDirectory();
+            }
+        }
     }
+}
+
+void SessionManager::splitActive(Qt::Orientation orientation)
+{
+    TabState* tab = currentTab();
+    if (tab == nullptr || tab->root == nullptr || tab->activeSession == nullptr) {
+        return;
+    }
+
+    TerminalSession* current = tab->activeSession;
+    current->refreshWorkingDirectory();
+    const QString workingDirectory = current->workingDirectory().isEmpty()
+        ? QDir::homePath()
+        : current->workingDirectory();
+
+    TerminalSession* session = createSession(workingDirectory);
+    if (!tab->root->splitSession(current, orientation, session)) {
+        session->deleteLater();
+        return;
+    }
+
+    tab->sessions.push_back(session);
+    tab->activeSession = session;
+
+    emitCurrentTabStateChanged({SessionRole, RootRole, TitleRole, RunningRole, WorkingDirectoryRole, ShellRole, PaneCountRole});
+    emit activeSessionChanged();
+    emit activeRootChanged();
+    emit activePaneCountChanged();
+
+    session->startDefaultShellInDirectory(workingDirectory);
+}
+
+void SessionManager::setActivePane(TabState& tab, TerminalSession* session)
+{
+    if (session == nullptr || tab.activeSession == session || !tab.sessions.contains(session)) {
+        return;
+    }
+
+    tab.activeSession = session;
+    emitCurrentTabStateChanged({SessionRole, TitleRole, WorkingDirectoryRole, ShellRole});
+    emit activeSessionChanged();
+}
+
+void SessionManager::emitCurrentTabStateChanged(const QVector<int>& roles)
+{
+    if (m_currentIndex < 0 || m_currentIndex >= rowCount()) {
+        return;
+    }
+    const QModelIndex modelIndex = createIndex(m_currentIndex, 0);
+    emit dataChanged(modelIndex, modelIndex, roles);
 }

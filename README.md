@@ -1,4 +1,4 @@
-# AxiomTTY — M2.1 Tabs & Sessions (Pre-Alpha)
+# AxiomTTY — M2.2 Split Panes (Pre-Alpha)
 
 AxiomTTY is a Linux-first terminal emulator being developed in C++23 with Qt 6/QML.
 Linux/POSIX behavior is the reference; Fedora is the first development platform.
@@ -22,7 +22,7 @@ of public semantic versions until AxiomTTY is useful as a daily terminal.
 - `Ctrl+C` copies a selection or sends Unix `^C` when nothing is selected
 - `Ctrl+V` desktop-style paste
 
-### M2.1 — real tabs and independent sessions
+### M2.1/M2.2 — tabs, sessions and real split panes
 
 - multiple simultaneous tabs backed by independent PTYs
 - each tab owns its own `TerminalSession`, screen buffer and running process tree
@@ -30,10 +30,16 @@ of public semantic versions until AxiomTTY is useful as a daily terminal.
 - tab labels follow the current working directory and OSC terminal titles
 - close buttons and middle-click tab close
 - keyboard tab creation, closing and navigation
-- active shell/directory and session count in the status bar
+- active shell/directory and tab count in the status bar
 - closing the final tab creates a fresh shell instead of leaving a dead window
+- binary split-tree layout supporting nested horizontal and vertical splits
+- every split leaf is an independent PTY/session, not a duplicated view
+- new split panes inherit the focused pane's current working directory
+- draggable split handles resize the underlying PTYs independently
+- active-pane focus marker, pane count per tab and pane navigation shortcuts
+- closing a nested pane collapses its branch without disturbing sibling layouts
 
-## Tab shortcuts
+## Tab and pane shortcuts
 
 ```text
 Ctrl+Shift+T        new tab
@@ -43,6 +49,12 @@ Ctrl+Shift+Tab      previous tab
 Ctrl+PageDown       next tab
 Ctrl+PageUp         previous tab
 Alt+1 ... Alt+9     activate tab 1 ... 9
+
+Ctrl+Shift+D         split active pane to the right
+Ctrl+Shift+E         split active pane downward
+Ctrl+Shift+X         close active pane
+Ctrl+Shift+Right     next pane
+Ctrl+Shift+Left      previous pane
 ```
 
 `Ctrl+W` is deliberately **not** stolen by the GUI; it continues to reach Bash/readline
@@ -58,17 +70,17 @@ and terminal applications normally.
 
 `build.sh` performs a clean Debug build and runs the automated tests.
 
-## M2.1 manual test
+## M2.2 manual test
 
-See `docs/TESTING_M2_1.md`. The most important check is working-directory inheritance:
+See `docs/TESTING_M2_2.md`. One important check is working-directory inheritance for a new split:
 
 ```bash
 cd /mnt/Festplatte/Schreibtisch/Projekte/AxiomTTY
-# Ctrl+Shift+T
+# Ctrl+Shift+D
 pwd
 ```
 
-The new tab should open in the same directory while remaining an independent shell.
+The new pane should open in the same directory while remaining an independent shell.
 
 ## Design direction
 
