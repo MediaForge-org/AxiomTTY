@@ -17,6 +17,7 @@ class SessionManager final : public QAbstractListModel
     Q_PROPERTY(QObject* activeSession READ activeSession NOTIFY activeSessionChanged)
     Q_PROPERTY(QObject* activeRoot READ activeRoot NOTIFY activeRootChanged)
     Q_PROPERTY(int activePaneCount READ activePaneCount NOTIFY activePaneCountChanged)
+    Q_PROPERTY(int activePaneIndex READ activePaneIndex NOTIFY activePaneIndexChanged)
     Q_PROPERTY(int currentIndex READ currentIndex WRITE setCurrentIndex NOTIFY currentIndexChanged)
     Q_PROPERTY(int count READ count NOTIFY countChanged)
 
@@ -41,10 +42,14 @@ public:
     [[nodiscard]] QObject* activeSession() const;
     [[nodiscard]] QObject* activeRoot() const;
     [[nodiscard]] int activePaneCount() const noexcept;
+    [[nodiscard]] int activePaneIndex() const noexcept;
     [[nodiscard]] int currentIndex() const noexcept;
     [[nodiscard]] int count() const noexcept;
 
     Q_INVOKABLE void newTab();
+    Q_INVOKABLE void duplicateTab(int index);
+    Q_INVOKABLE void renameTab(int index, const QString& title);
+    Q_INVOKABLE void resetTabTitle(int index);
     Q_INVOKABLE void closeTab(int index);
     Q_INVOKABLE void activateTab(int index);
     Q_INVOKABLE void nextTab();
@@ -65,6 +70,7 @@ signals:
     void activeSessionChanged();
     void activeRootChanged();
     void activePaneCountChanged();
+    void activePaneIndexChanged();
     void currentIndexChanged();
     void countChanged();
 
@@ -73,9 +79,11 @@ private:
         SplitNode* root{nullptr};
         QPointer<TerminalSession> activeSession;
         QVector<TerminalSession*> sessions;
+        QString customTitle;
     };
 
     TerminalSession* createSession(const QString& workingDirectory);
+    void insertTab(int index, const QString& shellPath, const QString& workingDirectory, const QString& customTitle = {});
     [[nodiscard]] TabState* currentTab();
     [[nodiscard]] const TabState* currentTab() const;
     [[nodiscard]] TerminalSession* sessionAtTab(int index) const;

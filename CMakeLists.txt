@@ -11,7 +11,7 @@ set(CMAKE_CXX_EXTENSIONS OFF)
 set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 
 set(AXIOMTTY_DEVELOPMENT_STAGE "pre-alpha")
-set(AXIOMTTY_MILESTONE "M2-splits-r2")
+set(AXIOMTTY_MILESTONE "M2-session-polish-r3")
 
 option(AXIOMTTY_WARNINGS_AS_ERRORS "Treat compiler warnings as errors" OFF)
 option(AXIOMTTY_BUILD_TESTS "Build terminal core smoke tests" ON)

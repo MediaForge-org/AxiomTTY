@@ -8,6 +8,7 @@ Rectangle {
     required property var session
     required property int tabCount
     required property int paneCount
+    required property int activePaneIndex
 
     readonly property string shellName: {
         if (!root.session || root.session.shell.length === 0)
@@ -66,7 +67,7 @@ Rectangle {
 
         Text {
             visible: root.paneCount > 1
-            text: root.paneCount + (root.paneCount === 1 ? " PANE" : " PANES")
+            text: "PANE " + root.activePaneIndex + "/" + root.paneCount
             color: Theme.accent
             font.family: "sans-serif"
             font.pixelSize: 9

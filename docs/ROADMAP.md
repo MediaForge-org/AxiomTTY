@@ -62,7 +62,7 @@ AxiomTTY can serve as a normal interactive Linux terminal for everyday use.
 
 ## M2 — Sessions, tabs and splits — IN PROGRESS
 
-Completed through M2.2:
+Completed through M2.3:
 - many simultaneous PTYs across tabs
 - independent terminal state and scrollback per session
 - inherited Linux working directory for new tabs/panes
@@ -70,10 +70,14 @@ Completed through M2.2:
 - draggable split handles with independent PTY resizing
 - active-pane tracking and keyboard pane navigation
 - branch collapse when a pane is closed
+- custom tab names with automatic-title reset
+- right-click tab lifecycle menu and tab duplication
+- duplicated tabs inherit shell + working directory
+- active pane index/status (`PANE x/y`) and quieter inactive-pane focus UX
 
 Remaining M2 work:
-- pane/tab duplicate operations
-- tab rename/pin/reorder and drag between windows
+- pane duplication and richer clone/layout operations
+- tab pin/reorder and drag between windows
 - directional pane navigation based on geometry
 - layout/session restore groundwork
 - notifications for completed long-running commands
@@ -173,3 +177,14 @@ tab lifecycle operations such as rename, reorder and duplicate.
 - Added active-pane tracking, next/previous pane shortcuts and pane count indicators
 - Added branch collapse when closing a nested pane
 - Added split-tree smoke coverage plus a dedicated manual regression checklist
+
+
+## M2.3 — Tab/Pane & Session Polish
+
+- Added editable custom tab titles (double-click or context menu)
+- Added automatic-title reset so tabs can return to cwd/OSC-driven labels
+- Added right-click tab lifecycle menu
+- Added tab duplication preserving the active shell and `/proc/<pid>/cwd`
+- Added active pane index tracking and `PANE x/y` status feedback
+- Removed the persistent `CLICK TO TYPE` development badge from inactive panes
+- Kept the terminal surface visually dominant with only subtle focus chrome

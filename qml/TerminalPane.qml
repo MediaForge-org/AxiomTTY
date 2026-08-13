@@ -127,9 +127,7 @@ FocusScope {
                               ? "SCROLLBACK  -" + terminalView.scrollbackOffset
                               : root.resizeNotice
                                 ? root.session.columns + " × " + root.session.rows
-                                : !terminalView.activeFocus
-                                  ? "CLICK TO TYPE"
-                                  : ""
+                                : ""
                 color: root.copyNotice ? Theme.accent : Theme.textFaint
                 font.family: "sans-serif"
                 font.pixelSize: 9

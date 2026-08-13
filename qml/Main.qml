@@ -41,6 +41,7 @@ ApplicationWindow {
             session: sessions.activeSession
             tabCount: sessions.count
             paneCount: sessions.activePaneCount
+            activePaneIndex: sessions.activePaneIndex
         }
     }
 

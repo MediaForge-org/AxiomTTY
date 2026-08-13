@@ -1,5 +1,6 @@
 import QtQuick
 import QtQuick.Layouts
+import QtQuick.Controls
 import AxiomTTY
 
 Item {
@@ -13,9 +14,31 @@ Item {
 
     signal selected()
     signal closeRequested()
+    signal duplicateRequested()
+    signal renameRequested(string newTitle)
+    signal resetTitleRequested()
 
     implicitWidth: 190
     implicitHeight: 32
+
+    function beginRename() {
+        renameField.text = root.title
+        renamePopup.open()
+        Qt.callLater(function() {
+            renameField.forceActiveFocus()
+            renameField.selectAll()
+        })
+    }
+
+    function finishRename() {
+        const value = renameField.text.trim()
+        if (value.length > 0)
+            root.renameRequested(value)
+        else
+            root.resetTitleRequested()
+        renamePopup.close()
+        root.selected()
+    }
 
     Rectangle {
         anchors.fill: parent
@@ -99,12 +122,90 @@ Item {
         anchors.fill: parent
         anchors.rightMargin: 26
         hoverEnabled: true
-        acceptedButtons: Qt.LeftButton | Qt.MiddleButton
+        acceptedButtons: Qt.LeftButton | Qt.MiddleButton | Qt.RightButton
+
         onClicked: function(mouse) {
-            if (mouse.button === Qt.MiddleButton)
+            if (mouse.button === Qt.MiddleButton) {
                 root.closeRequested()
-            else
+            } else if (mouse.button === Qt.RightButton) {
                 root.selected()
+                tabMenu.popup()
+            } else {
+                root.selected()
+            }
         }
+
+        onDoubleClicked: function(mouse) {
+            if (mouse.button === Qt.LeftButton) {
+                root.selected()
+                root.beginRename()
+                mouse.accepted = true
+            }
+        }
+    }
+
+    Menu {
+        id: tabMenu
+
+        MenuItem {
+            text: "Duplicate Tab"
+            onTriggered: root.duplicateRequested()
+        }
+        MenuItem {
+            text: "Rename Tab"
+            onTriggered: Qt.callLater(root.beginRename)
+        }
+        MenuItem {
+            text: "Use Automatic Title"
+            onTriggered: root.resetTitleRequested()
+        }
+        MenuSeparator {}
+        MenuItem {
+            text: "Close Tab"
+            onTriggered: root.closeRequested()
+        }
+    }
+
+    Popup {
+        id: renamePopup
+        width: Math.max(220, root.width)
+        height: 42
+        x: 0
+        y: root.height + 4
+        padding: 5
+        focus: true
+        modal: false
+        closePolicy: Popup.CloseOnEscape | Popup.CloseOnPressOutside
+
+        background: Rectangle {
+            color: Theme.raised
+            border.width: 1
+            border.color: Theme.borderStrong
+            radius: Theme.radiusSmall
+        }
+
+        contentItem: TextField {
+            id: renameField
+            placeholderText: "Tab name"
+            color: Theme.text
+            selectionColor: Theme.accentMuted
+            selectedTextColor: Theme.text
+            font.family: "sans-serif"
+            font.pixelSize: 11
+            selectByMouse: true
+            background: Rectangle {
+                color: Theme.background
+                border.width: 1
+                border.color: renameField.activeFocus ? Theme.accent : Theme.border
+                radius: Theme.radiusSmall
+            }
+
+            onAccepted: root.finishRename()
+        }
+
+        onOpened: Qt.callLater(function() {
+            renameField.forceActiveFocus()
+            renameField.selectAll()
+        })
     }
 }

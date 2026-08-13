@@ -1,4 +1,4 @@
-# AxiomTTY — M2.2 Split Panes (Pre-Alpha)
+# AxiomTTY — M2.3 Session Polish (Pre-Alpha)
 
 AxiomTTY is a Linux-first terminal emulator being developed in C++23 with Qt 6/QML.
 Linux/POSIX behavior is the reference; Fedora is the first development platform.
@@ -22,7 +22,7 @@ of public semantic versions until AxiomTTY is useful as a daily terminal.
 - `Ctrl+C` copies a selection or sends Unix `^C` when nothing is selected
 - `Ctrl+V` desktop-style paste
 
-### M2.1/M2.2 — tabs, sessions and real split panes
+### M2.1–M2.3 — tabs, sessions, split panes and polish
 
 - multiple simultaneous tabs backed by independent PTYs
 - each tab owns its own `TerminalSession`, screen buffer and running process tree
@@ -38,6 +38,11 @@ of public semantic versions until AxiomTTY is useful as a daily terminal.
 - draggable split handles resize the underlying PTYs independently
 - active-pane focus marker, pane count per tab and pane navigation shortcuts
 - closing a nested pane collapses its branch without disturbing sibling layouts
+- custom tab names via double-click or right-click → Rename Tab
+- right-click tab menu with duplicate, rename, automatic-title reset and close
+- duplicated tabs inherit the selected tab's active shell and Linux working directory
+- active-pane status now shows `PANE x/y` for split layouts
+- inactive panes use subtle focus chrome instead of `CLICK TO TYPE` debug badges
 
 ## Tab and pane shortcuts
 
@@ -70,17 +75,17 @@ and terminal applications normally.
 
 `build.sh` performs a clean Debug build and runs the automated tests.
 
-## M2.2 manual test
+## M2.3 manual test
 
-See `docs/TESTING_M2_2.md`. One important check is working-directory inheritance for a new split:
+See `docs/TESTING_M2_3.md`. M2.2 split regression checks remain relevant in `docs/TESTING_M2_2.md`. One important check is working-directory inheritance for a duplicated tab:
 
 ```bash
 cd /mnt/Festplatte/Schreibtisch/Projekte/AxiomTTY
-# Ctrl+Shift+D
+# right-click the tab → Duplicate Tab
 pwd
 ```
 
-The new pane should open in the same directory while remaining an independent shell.
+The duplicated tab should open in the same directory while remaining an independent shell.
 
 ## Design direction
 

@@ -88,6 +88,18 @@ int SessionManager::activePaneCount() const noexcept
     return tab != nullptr ? static_cast<int>(tab->sessions.size()) : 0;
 }
 
+int SessionManager::activePaneIndex() const noexcept
+{
+    const TabState* tab = currentTab();
+    if (tab == nullptr || tab->root == nullptr || tab->activeSession == nullptr) {
+        return 0;
+    }
+
+    const QVector<TerminalSession*> leaves = tab->root->leafSessions();
+    const int index = leaves.indexOf(tab->activeSession);
+    return index >= 0 ? index + 1 : 0;
+}
+
 int SessionManager::currentIndex() const noexcept
 {
     return m_currentIndex;
@@ -100,23 +112,50 @@ int SessionManager::count() const noexcept
 
 void SessionManager::newTab()
 {
-    const QString workingDirectory = inheritedWorkingDirectory();
-    const int insertIndex = rowCount();
+    insertTab(rowCount(), {}, inheritedWorkingDirectory());
+}
 
-    TerminalSession* session = createSession(workingDirectory);
-    auto* root = new SplitNode(session, this);
+void SessionManager::duplicateTab(int index)
+{
+    if (index < 0 || index >= rowCount()) {
+        return;
+    }
 
-    beginInsertRows(QModelIndex(), insertIndex, insertIndex);
-    TabState tab;
-    tab.root = root;
-    tab.activeSession = session;
-    tab.sessions.push_back(session);
-    m_tabs.push_back(tab);
-    endInsertRows();
-    emit countChanged();
+    TabState& sourceTab = m_tabs[index];
+    TerminalSession* source = sourceTab.activeSession;
+    if (source == nullptr) {
+        return;
+    }
 
-    setCurrentIndex(insertIndex);
-    session->startDefaultShellInDirectory(workingDirectory);
+    source->refreshWorkingDirectory();
+    const QString workingDirectory = source->workingDirectory().isEmpty()
+        ? QDir::homePath()
+        : source->workingDirectory();
+    const QString shellPath = source->shell();
+    const QString customTitle = sourceTab.customTitle;
+
+    insertTab(index + 1, shellPath, workingDirectory, customTitle);
+}
+
+void SessionManager::renameTab(int index, const QString& title)
+{
+    if (index < 0 || index >= rowCount()) {
+        return;
+    }
+
+    const QString normalized = title.trimmed();
+    if (m_tabs[index].customTitle == normalized) {
+        return;
+    }
+
+    m_tabs[index].customTitle = normalized;
+    const QModelIndex modelIndex = createIndex(index, 0);
+    emit dataChanged(modelIndex, modelIndex, {TitleRole});
+}
+
+void SessionManager::resetTabTitle(int index)
+{
+    renameTab(index, {});
 }
 
 void SessionManager::closeTab(int index)
@@ -148,6 +187,7 @@ void SessionManager::closeTab(int index)
         emit activeSessionChanged();
         emit activeRootChanged();
         emit activePaneCountChanged();
+        emit activePaneIndexChanged();
         newTab();
         return;
     }
@@ -168,6 +208,7 @@ void SessionManager::closeTab(int index)
         emit activeSessionChanged();
         emit activeRootChanged();
         emit activePaneCountChanged();
+        emit activePaneIndexChanged();
     }
 }
 
@@ -244,6 +285,7 @@ void SessionManager::closeActivePane()
     emit activeSessionChanged();
     emit activeRootChanged();
     emit activePaneCountChanged();
+    emit activePaneIndexChanged();
 }
 
 void SessionManager::activatePane(QObject* sessionObject)
@@ -293,6 +335,7 @@ void SessionManager::setCurrentIndex(int index)
     emit activeSessionChanged();
     emit activeRootChanged();
     emit activePaneCountChanged();
+    emit activePaneIndexChanged();
 }
 
 TerminalSession* SessionManager::createSession(const QString& workingDirectory)
@@ -301,6 +344,33 @@ TerminalSession* SessionManager::createSession(const QString& workingDirectory)
     session->setInitialWorkingDirectory(workingDirectory);
     connectSession(session);
     return session;
+}
+
+void SessionManager::insertTab(int index, const QString& shellPath, const QString& workingDirectory, const QString& customTitle)
+{
+    const int insertIndex = std::clamp(index, 0, rowCount());
+    const QString directory = workingDirectory.isEmpty() ? QDir::homePath() : workingDirectory;
+
+    TerminalSession* session = createSession(directory);
+    auto* root = new SplitNode(session, this);
+
+    beginInsertRows(QModelIndex(), insertIndex, insertIndex);
+    TabState tab;
+    tab.root = root;
+    tab.activeSession = session;
+    tab.sessions.push_back(session);
+    tab.customTitle = customTitle.trimmed();
+    m_tabs.insert(insertIndex, tab);
+    endInsertRows();
+    emit countChanged();
+
+    setCurrentIndex(insertIndex);
+
+    if (!shellPath.isEmpty()) {
+        session->startShellInDirectory(shellPath, directory);
+    } else {
+        session->startDefaultShellInDirectory(directory);
+    }
 }
 
 SessionManager::TabState* SessionManager::currentTab()
@@ -329,6 +399,10 @@ TerminalSession* SessionManager::sessionAtTab(int index) const
 
 QString SessionManager::displayTitle(const TabState& tab) const
 {
+    if (!tab.customTitle.isEmpty()) {
+        return tab.customTitle;
+    }
+
     const TerminalSession* session = tab.activeSession;
     if (session == nullptr) {
         return QStringLiteral("Shell");
@@ -458,6 +532,7 @@ void SessionManager::splitActive(Qt::Orientation orientation)
     emit activeSessionChanged();
     emit activeRootChanged();
     emit activePaneCountChanged();
+    emit activePaneIndexChanged();
 
     session->startDefaultShellInDirectory(workingDirectory);
 }
@@ -471,6 +546,7 @@ void SessionManager::setActivePane(TabState& tab, TerminalSession* session)
     tab.activeSession = session;
     emitCurrentTabStateChanged({SessionRole, TitleRole, WorkingDirectoryRole, ShellRole});
     emit activeSessionChanged();
+    emit activePaneIndexChanged();
 }
 
 void SessionManager::emitCurrentTabStateChanged(const QVector<int>& roles)
