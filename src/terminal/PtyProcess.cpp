@@ -2,6 +2,7 @@
 
 #include <QSocketNotifier>
 #include <QFile>
+#include <QFileInfo>
 #include <QTimer>
 
 #include <cerrno>
@@ -46,6 +47,21 @@ bool PtyProcess::isRunning() const noexcept
 qint64 PtyProcess::processId() const noexcept
 {
     return m_pid;
+}
+
+bool PtyProcess::hasChildProcesses() const
+{
+    if (!m_running || m_pid <= 0) {
+        return false;
+    }
+
+    const QString childrenPath = QStringLiteral("/proc/%1/task/%1/children").arg(m_pid);
+    QFile childrenFile(childrenPath);
+    if (!childrenFile.open(QIODevice::ReadOnly | QIODevice::Text)) {
+        return false;
+    }
+
+    return !childrenFile.readAll().trimmed().isEmpty();
 }
 
 bool PtyProcess::start(

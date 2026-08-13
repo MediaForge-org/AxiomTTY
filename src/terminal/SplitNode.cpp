@@ -70,6 +70,46 @@ bool SplitNode::containsSession(const TerminalSession* sessionValue) const
         || (m_second != nullptr && m_second->containsSession(sessionValue));
 }
 
+
+TerminalSession* SplitNode::neighborSession(TerminalSession* target, PaneDirection direction) const
+{
+    if (target == nullptr || isLeaf()) {
+        return nullptr;
+    }
+
+    QVector<PathStep> path;
+    if (!collectPath(target, path)) {
+        return nullptr;
+    }
+
+    for (qsizetype index = path.size(); index > 0; --index) {
+        const PathStep& step = path.at(index - 1);
+        if (step.node == nullptr) {
+            continue;
+        }
+
+        const bool horizontal = step.node->m_orientation == Qt::Horizontal;
+        const bool vertical = step.node->m_orientation == Qt::Vertical;
+        const SplitNode* sibling = nullptr;
+
+        if (direction == PaneDirection::Left && horizontal && step.fromSecond) {
+            sibling = step.node->m_first;
+        } else if (direction == PaneDirection::Right && horizontal && !step.fromSecond) {
+            sibling = step.node->m_second;
+        } else if (direction == PaneDirection::Up && vertical && step.fromSecond) {
+            sibling = step.node->m_first;
+        } else if (direction == PaneDirection::Down && vertical && !step.fromSecond) {
+            sibling = step.node->m_second;
+        }
+
+        if (sibling != nullptr) {
+            return sibling->edgeLeaf(direction);
+        }
+    }
+
+    return nullptr;
+}
+
 bool SplitNode::splitSession(TerminalSession* target, Qt::Orientation orientationValue, TerminalSession* newSession)
 {
     if (target == nullptr || newSession == nullptr) {
@@ -118,6 +158,53 @@ bool SplitNode::removeSession(TerminalSession* target, TerminalSession*& fallbac
         return true;
     }
     return m_second != nullptr && m_second->removeSession(target, fallbackSession);
+}
+
+
+bool SplitNode::collectPath(TerminalSession* target, QVector<PathStep>& path) const
+{
+    if (target == nullptr) {
+        return false;
+    }
+    if (isLeaf()) {
+        return m_session == target;
+    }
+
+    if (m_first != nullptr) {
+        path.push_back(PathStep{this, false});
+        if (m_first->collectPath(target, path)) {
+            return true;
+        }
+        path.removeLast();
+    }
+
+    if (m_second != nullptr) {
+        path.push_back(PathStep{this, true});
+        if (m_second->collectPath(target, path)) {
+            return true;
+        }
+        path.removeLast();
+    }
+
+    return false;
+}
+
+TerminalSession* SplitNode::edgeLeaf(PaneDirection direction) const
+{
+    if (isLeaf()) {
+        return m_session;
+    }
+
+    const bool preferSecond = direction == PaneDirection::Left || direction == PaneDirection::Up;
+    const SplitNode* preferred = preferSecond ? m_second : m_first;
+    const SplitNode* fallback = preferSecond ? m_first : m_second;
+
+    if (preferred != nullptr) {
+        if (TerminalSession* session = preferred->edgeLeaf(direction); session != nullptr) {
+            return session;
+        }
+    }
+    return fallback != nullptr ? fallback->edgeLeaf(direction) : nullptr;
 }
 
 void SplitNode::collectLeafSessions(QVector<TerminalSession*>& sessions) const

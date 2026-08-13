@@ -15,6 +15,14 @@ ApplicationWindow {
     title: "AxiomTTY"
     color: Theme.background
     flags: Qt.Window | Qt.FramelessWindowHint
+    property bool allowWindowClose: false
+
+    onClosing: function(close) {
+        if (allowWindowClose)
+            return
+        close.accepted = false
+        sessions.requestCloseApplication()
+    }
 
     font.family: "sans-serif"
     font.pixelSize: Theme.uiFontSize
@@ -111,6 +119,28 @@ ApplicationWindow {
         onPressed: root.startSystemResize(Qt.RightEdge | Qt.BottomEdge)
     }
 
+    CloseConfirmPopup {
+        id: closeConfirmPopup
+        parent: Overlay.overlay
+        x: Math.round((parent.width - width) / 2)
+        y: Math.round((parent.height - height) / 2)
+        z: 2000
+        onAccepted: sessions.confirmPendingClose()
+        onRejected: sessions.cancelPendingClose()
+    }
+
+    Connections {
+        target: sessions
+        function onCloseConfirmationRequested(message) {
+            closeConfirmPopup.message = message
+            closeConfirmPopup.open()
+        }
+        function onApplicationCloseApproved() {
+            root.allowWindowClose = true
+            Qt.callLater(function() { root.close() })
+        }
+    }
+
     Shortcut {
         sequence: "Ctrl+Shift+T"
         onActivated: sessions.newTab()
@@ -118,7 +148,7 @@ ApplicationWindow {
 
     Shortcut {
         sequence: "Ctrl+Shift+W"
-        onActivated: sessions.closeTab(sessions.currentIndex)
+        onActivated: sessions.requestCloseTab(sessions.currentIndex)
     }
 
     Shortcut {
@@ -159,9 +189,13 @@ ApplicationWindow {
 
     Shortcut { sequence: "Ctrl+Shift+D"; onActivated: sessions.splitRight() }
     Shortcut { sequence: "Ctrl+Shift+E"; onActivated: sessions.splitDown() }
-    Shortcut { sequence: "Ctrl+Shift+X"; onActivated: sessions.closeActivePane() }
-    Shortcut { sequence: "Ctrl+Shift+Right"; onActivated: sessions.nextPane() }
-    Shortcut { sequence: "Ctrl+Shift+Left"; onActivated: sessions.previousPane() }
+    Shortcut { sequence: "Alt+Shift+D"; onActivated: sessions.duplicateActivePaneRight() }
+    Shortcut { sequence: "Alt+Shift+E"; onActivated: sessions.duplicateActivePaneDown() }
+    Shortcut { sequence: "Ctrl+Shift+X"; onActivated: sessions.requestCloseActivePane() }
+    Shortcut { sequence: "Ctrl+Shift+Left"; onActivated: sessions.focusPaneLeft() }
+    Shortcut { sequence: "Ctrl+Shift+Right"; onActivated: sessions.focusPaneRight() }
+    Shortcut { sequence: "Ctrl+Shift+Up"; onActivated: sessions.focusPaneUp() }
+    Shortcut { sequence: "Ctrl+Shift+Down"; onActivated: sessions.focusPaneDown() }
 
     Shortcut { sequence: "Alt+1"; onActivated: sessions.activateTabNumber(1) }
     Shortcut { sequence: "Alt+2"; onActivated: sessions.activateTabNumber(2) }

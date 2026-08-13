@@ -136,7 +136,7 @@ Rectangle {
                 tabIndex: index
 
                 onSelected: root.sessionManager.activateTab(index)
-                onCloseRequested: root.sessionManager.closeTab(index)
+                onCloseRequested: root.sessionManager.requestCloseTab(index)
                 onDuplicateRequested: root.sessionManager.duplicateTab(index)
                 onRenameRequested: function(newTitle) { root.sessionManager.renameTab(index, newTitle) }
                 onResetTitleRequested: root.sessionManager.resetTabTitle(index)

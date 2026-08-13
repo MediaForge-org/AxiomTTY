@@ -28,6 +28,7 @@ public:
     [[nodiscard]] QString shell() const;
     [[nodiscard]] bool running() const;
     [[nodiscard]] qint64 processId() const;
+    [[nodiscard]] bool hasChildProcesses() const;
     [[nodiscard]] bool applicationCursorKeys() const;
     [[nodiscard]] bool bracketedPaste() const;
     [[nodiscard]] int rows() const noexcept;

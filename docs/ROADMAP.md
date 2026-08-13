@@ -50,7 +50,7 @@ Completed through M1 R8:
 Remaining M1 refinements:
 - full grapheme-cluster handling for complex emoji/ZWJ/flags
 - better horizontal resize/reflow of already wrapped history
-- scrollback search and polished scrollbar UI
+- polished scrollbar UI
 - more xterm/DEC modes and terminal query responses
 - richer modified-key reporting
 - more complete mouse protocol edge cases
@@ -62,7 +62,7 @@ AxiomTTY can serve as a normal interactive Linux terminal for everyday use.
 
 ## M2 — Sessions, tabs and splits — IN PROGRESS
 
-Completed through M2.3:
+Completed through M2.4:
 - many simultaneous PTYs across tabs
 - independent terminal state and scrollback per session
 - inherited Linux working directory for new tabs/panes
@@ -74,6 +74,8 @@ Completed through M2.3:
 - right-click tab lifecycle menu and tab duplication
 - duplicated tabs inherit shell + working directory
 - active pane index/status (`PANE x/y`) and quieter inactive-pane focus UX
+- pane-local full-scrollback search with highlighted/current matches
+- search navigation, case sensitivity and soft-wrap-aware matching
 
 Remaining M2 work:
 - pane duplication and richer clone/layout operations
@@ -83,7 +85,7 @@ Remaining M2 work:
 - notifications for completed long-running commands
 
 ## M3 — Product-quality interaction
-- searchable scrollback/history
+- search UX polish (regex/whole-word/filter options)
 - completion UI
 - link/path detection
 - command palette
@@ -188,3 +190,22 @@ tab lifecycle operations such as rename, reorder and duplicate.
 - Added active pane index tracking and `PANE x/y` status feedback
 - Removed the persistent `CLICK TO TYPE` development badge from inactive panes
 - Kept the terminal surface visually dominant with only subtle focus chrome
+
+
+## M2.4 — Scrollback Search
+
+- Added `Ctrl+F` pane-local search over the complete terminal history
+- Added visible match highlighting and a stronger current-result highlight
+- Added Enter/F3 next and Shift+Enter/Shift+F3 previous navigation
+- Added current/total match counter and case-sensitivity toggle
+- Search automatically scrolls the active pane to off-screen results
+- Matching crosses terminal soft-wrap boundaries and handles wide characters
+- Added VT-core regression coverage for search behavior
+
+
+## M2.5 — Pane navigation & lifecycle
+
+- geometric Left/Right/Up/Down pane focus
+- duplicate active pane while inheriting shell + working directory
+- confirmation before closing panes/tabs/application with child processes
+- keep idle-shell close actions immediate

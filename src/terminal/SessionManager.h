@@ -8,7 +8,8 @@
 #include <QVariant>
 #include <QVector>
 
-class SplitNode;
+#include "SplitNode.h"
+
 class TerminalSession;
 
 class SessionManager final : public QAbstractListModel
@@ -50,6 +51,7 @@ public:
     Q_INVOKABLE void duplicateTab(int index);
     Q_INVOKABLE void renameTab(int index, const QString& title);
     Q_INVOKABLE void resetTabTitle(int index);
+    Q_INVOKABLE void requestCloseTab(int index);
     Q_INVOKABLE void closeTab(int index);
     Q_INVOKABLE void activateTab(int index);
     Q_INVOKABLE void nextTab();
@@ -58,10 +60,20 @@ public:
 
     Q_INVOKABLE void splitRight();
     Q_INVOKABLE void splitDown();
+    Q_INVOKABLE void duplicateActivePaneRight();
+    Q_INVOKABLE void duplicateActivePaneDown();
+    Q_INVOKABLE void requestCloseActivePane();
     Q_INVOKABLE void closeActivePane();
     Q_INVOKABLE void activatePane(QObject* sessionObject);
     Q_INVOKABLE void nextPane();
     Q_INVOKABLE void previousPane();
+    Q_INVOKABLE void focusPaneLeft();
+    Q_INVOKABLE void focusPaneRight();
+    Q_INVOKABLE void focusPaneUp();
+    Q_INVOKABLE void focusPaneDown();
+    Q_INVOKABLE void requestCloseApplication();
+    Q_INVOKABLE void confirmPendingClose();
+    Q_INVOKABLE void cancelPendingClose();
 
 public slots:
     void setCurrentIndex(int index);
@@ -73,8 +85,17 @@ signals:
     void activePaneIndexChanged();
     void currentIndexChanged();
     void countChanged();
+    void closeConfirmationRequested(const QString& message);
+    void applicationCloseApproved();
 
 private:
+    enum class PendingCloseKind {
+        None,
+        Tab,
+        Pane,
+        Application,
+    };
+
     struct TabState {
         SplitNode* root{nullptr};
         QPointer<TerminalSession> activeSession;
@@ -94,11 +115,19 @@ private:
     void connectSession(TerminalSession* session);
     void notifySessionChanged(TerminalSession* session, const QVector<int>& roles);
     void refreshWorkingDirectories();
-    void splitActive(Qt::Orientation orientation);
+    void splitActive(Qt::Orientation orientation, bool duplicateShell = false);
+    void focusPane(SplitNode::PaneDirection direction);
+    [[nodiscard]] bool tabHasBusyProcesses(int index) const;
+    [[nodiscard]] bool activePaneHasBusyProcess() const;
+    [[nodiscard]] bool anyBusyProcesses() const;
+    void clearPendingClose();
     void setActivePane(TabState& tab, TerminalSession* session);
     void emitCurrentTabStateChanged(const QVector<int>& roles = {});
 
     QVector<TabState> m_tabs;
     int m_currentIndex{-1};
     QTimer m_cwdRefreshTimer;
+    PendingCloseKind m_pendingCloseKind{PendingCloseKind::None};
+    int m_pendingCloseTabIndex{-1};
+    QPointer<TerminalSession> m_pendingCloseSession;
 };

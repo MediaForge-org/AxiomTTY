@@ -26,7 +26,7 @@ The GUI does not own process semantics. The terminal emulator does not know
 about future workspaces or package-manager UI. The future own shell remains a
 separate component and can later be built as a standalone executable.
 
-## Current milestone — M2.2 Split Panes
+## Current milestone — M2.5 Pane Navigation & Lifecycle
 
 Implemented:
 
@@ -54,6 +54,11 @@ Implemented:
 - C++ `QQuickPaintedItem` renderer
 - native mouse selection and context-sensitive `Ctrl+C`
 - direct `Ctrl+V` paste and bracketed-paste support
+- pane-local search mapped back onto terminal history cells
+- highlighted current/all search results with history navigation
+- split-tree directional pane neighbour resolution
+- child-process-aware pane/tab/application close requests
+- fresh-PTY pane duplication with shell/CWD inheritance
 
 Installed Linux commands continue to be real executables. `git`, `dnf`, `sudo`,
 `ssh`, `docker`, `cmake`, etc. are not reimplemented.
@@ -82,7 +87,7 @@ to infer a directory from prompt text.
 
 - full grapheme clusters for complex emoji/ZWJ/flags
 - horizontal reflow of existing wrapped history after width changes
-- scrollback search and polished scrollbar UI
+- polished scrollbar UI
 - complete xterm/DEC private-mode and query coverage
 - richer modified-key reporting
 - remaining mouse protocol edge cases
@@ -92,3 +97,12 @@ to infer a directory from prompt text.
 `QQuickPaintedItem` is intentionally an early renderer. Once terminal semantics
 are stable, a lower-level Qt Quick scene-graph renderer can replace it without
 changing PTY, parser or screen-model architecture.
+
+
+## M2.5 navigation and lifecycle notes
+
+`SplitNode` now resolves directional pane neighbours from the split-tree topology.
+`SessionManager` owns close requests and only asks the UI for confirmation when the
+PTY shell currently has child processes. Plain idle shells retain immediate close
+behavior. Pane duplication creates a fresh PTY using the active pane's shell and CWD;
+it does not clone process memory or terminal scrollback.

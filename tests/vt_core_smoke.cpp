@@ -1,4 +1,5 @@
 #include "terminal/TerminalScreen.h"
+#include "terminal/TerminalSearch.h"
 #include "terminal/VtParser.h"
 
 #include <QCoreApplication>
@@ -82,6 +83,27 @@ int main(int argc, char* argv[])
     TerminalScreen wrapScreen(2, 4);
     wrapScreen.writeText(QStringLiteral("abcde"));
     if (!expect(wrapScreen.textInRange(0, 0, 1, 0) == QStringLiteral("abcde"), "soft-wrap-aware text extraction")) return 1;
+
+    TerminalScreen searchScreen(3, 12);
+    VtParser searchParser(searchScreen);
+    searchParser.consume(QByteArray("alpha error\r\nbeta ERROR\r\ngamma error"));
+    const auto insensitiveMatches = findTerminalMatches(searchScreen, QStringLiteral("error"), Qt::CaseInsensitive);
+    if (!expect(insensitiveMatches.size() == 3, "scrollback search case-insensitive matches")) return 1;
+    const auto sensitiveMatches = findTerminalMatches(searchScreen, QStringLiteral("error"), Qt::CaseSensitive);
+    if (!expect(sensitiveMatches.size() == 2, "scrollback search case-sensitive matches")) return 1;
+
+    TerminalScreen wrappedSearchScreen(2, 4);
+    wrappedSearchScreen.writeText(QStringLiteral("abcde"));
+    const auto wrappedMatches = findTerminalMatches(wrappedSearchScreen, QStringLiteral("cde"), Qt::CaseSensitive);
+    if (!expect(wrappedMatches.size() == 1, "search crosses soft-wrapped terminal rows")) return 1;
+    if (!expect(wrappedMatches.front().startRow == 0 && wrappedMatches.front().startColumn == 2, "wrapped search start coordinate")) return 1;
+    if (!expect(wrappedMatches.front().endRow == 1 && wrappedMatches.front().endColumn == 0, "wrapped search end coordinate")) return 1;
+
+    TerminalScreen unicodeSearchScreen(2, 12);
+    unicodeSearchScreen.writeText(QStringLiteral("A界B界C"));
+    const auto unicodeMatches = findTerminalMatches(unicodeSearchScreen, QStringLiteral("界B界"), Qt::CaseSensitive);
+    if (!expect(unicodeMatches.size() == 1, "wide-character search match")) return 1;
+    if (!expect(unicodeMatches.front().startColumn == 1 && unicodeMatches.front().endColumn == 5, "wide-character search coordinates")) return 1;
 
     TerminalScreen charsetScreen(2, 12);
     VtParser charsetParser(charsetScreen);

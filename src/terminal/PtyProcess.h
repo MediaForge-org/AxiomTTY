@@ -23,6 +23,7 @@ public:
 
     [[nodiscard]] bool isRunning() const noexcept;
     [[nodiscard]] qint64 processId() const noexcept;
+    [[nodiscard]] bool hasChildProcesses() const;
 
     bool start(
         const QString& program,

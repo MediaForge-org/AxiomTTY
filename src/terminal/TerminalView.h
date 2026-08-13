@@ -5,8 +5,12 @@
 #include <QPointer>
 #include <QQuickPaintedItem>
 #include <QTimer>
+#include <QString>
 
 #include <utility>
+#include <vector>
+
+#include "TerminalSearch.h"
 
 class QFocusEvent;
 class QHoverEvent;
@@ -26,6 +30,11 @@ class TerminalView : public QQuickPaintedItem
     Q_PROPERTY(bool hasSelection READ hasSelection NOTIFY selectionChanged)
     Q_PROPERTY(QString selectedText READ selectedText NOTIFY selectionChanged)
     Q_PROPERTY(int scrollbackOffset READ scrollbackOffset NOTIFY scrollbackChanged)
+    Q_PROPERTY(bool searchActive READ searchActive NOTIFY searchChanged)
+    Q_PROPERTY(QString searchQuery READ searchQuery WRITE setSearchQuery NOTIFY searchChanged)
+    Q_PROPERTY(bool searchCaseSensitive READ searchCaseSensitive WRITE setSearchCaseSensitive NOTIFY searchChanged)
+    Q_PROPERTY(int searchMatchCount READ searchMatchCount NOTIFY searchChanged)
+    Q_PROPERTY(int currentSearchMatch READ currentSearchMatch NOTIFY searchChanged)
 
 public:
     explicit TerminalView(QQuickItem* parent = nullptr);
@@ -44,12 +53,23 @@ public:
     [[nodiscard]] bool hasSelection() const noexcept;
     [[nodiscard]] QString selectedText() const;
     [[nodiscard]] int scrollbackOffset() const noexcept;
+    [[nodiscard]] bool searchActive() const noexcept;
+    [[nodiscard]] QString searchQuery() const;
+    void setSearchQuery(const QString& query);
+    [[nodiscard]] bool searchCaseSensitive() const noexcept;
+    void setSearchCaseSensitive(bool enabled);
+    [[nodiscard]] int searchMatchCount() const noexcept;
+    [[nodiscard]] int currentSearchMatch() const noexcept;
 
     Q_INVOKABLE bool copySelection();
     Q_INVOKABLE void clearSelection();
     Q_INVOKABLE void scrollPageUp();
     Q_INVOKABLE void scrollPageDown();
     Q_INVOKABLE void scrollToBottom();
+    Q_INVOKABLE void beginSearch();
+    Q_INVOKABLE void endSearch();
+    Q_INVOKABLE void findNext();
+    Q_INVOKABLE void findPrevious();
 
     void paint(QPainter* painter) override;
 
@@ -61,6 +81,8 @@ signals:
     void selectionChanged();
     void scrollbackChanged();
     void selectionCopied();
+    void searchChanged();
+    void searchRequested();
 
 protected:
     void geometryChange(const QRectF& newGeometry, const QRectF& oldGeometry) override;
@@ -82,6 +104,10 @@ private:
     [[nodiscard]] bool isCellSelected(int row, int column) const noexcept;
     [[nodiscard]] std::pair<QPoint, QPoint> normalizedSelection() const noexcept;
     [[nodiscard]] int visibleHistoryStart() const noexcept;
+    [[nodiscard]] int searchHighlightAt(int historyRow, int column) const noexcept;
+    void rebuildSearchMatches(bool preserveCurrent = true);
+    void activateSearchMatch(int index);
+    void scrollToSearchMatch(const TerminalSearchMatch& match);
     void setSelectionEnd(const QPoint& cell);
     void scrollByRows(int rows);
     void updateSelectionAutoScroll(const QPointF& position);
@@ -104,6 +130,12 @@ private:
     QPoint m_selectionStart{0, 0}; // x = column, y = absolute history row
     QPoint m_selectionEnd{0, 0};
     int m_scrollbackOffset{0};
+
+    bool m_searchActive{false};
+    QString m_searchQuery;
+    bool m_searchCaseSensitive{false};
+    std::vector<TerminalSearchMatch> m_searchMatches;
+    int m_currentSearchIndex{-1};
 
     QTimer m_cursorBlinkTimer;
     bool m_cursorBlinkOn{true};

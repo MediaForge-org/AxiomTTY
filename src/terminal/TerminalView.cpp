@@ -17,6 +17,7 @@
 
 #include <algorithm>
 #include <cmath>
+#include <iterator>
 #include <utility>
 
 TerminalView::TerminalView(QQuickItem* parent)
@@ -73,6 +74,9 @@ void TerminalView::setSession(QObject* sessionObject)
     if (m_session) {
         connect(m_session, &TerminalSession::screenChanged, this, [this] {
             clampScrollbackOffset();
+            if (m_searchActive && !m_searchQuery.isEmpty()) {
+                rebuildSearchMatches(true);
+            }
             update();
         });
         connect(m_session, &TerminalSession::runningChanged, this, [this] { update(); });
@@ -124,6 +128,38 @@ QString TerminalView::selectedText() const
 }
 
 int TerminalView::scrollbackOffset() const noexcept { return m_scrollbackOffset; }
+bool TerminalView::searchActive() const noexcept { return m_searchActive; }
+QString TerminalView::searchQuery() const { return m_searchQuery; }
+
+void TerminalView::setSearchQuery(const QString& query)
+{
+    if (m_searchQuery == query) {
+        return;
+    }
+    m_searchQuery = query;
+    rebuildSearchMatches(false);
+}
+
+bool TerminalView::searchCaseSensitive() const noexcept { return m_searchCaseSensitive; }
+
+void TerminalView::setSearchCaseSensitive(bool enabled)
+{
+    if (m_searchCaseSensitive == enabled) {
+        return;
+    }
+    m_searchCaseSensitive = enabled;
+    rebuildSearchMatches(false);
+}
+
+int TerminalView::searchMatchCount() const noexcept
+{
+    return static_cast<int>(m_searchMatches.size());
+}
+
+int TerminalView::currentSearchMatch() const noexcept
+{
+    return m_currentSearchIndex >= 0 ? m_currentSearchIndex + 1 : 0;
+}
 
 bool TerminalView::copySelection()
 {
@@ -182,6 +218,55 @@ void TerminalView::scrollToBottom()
     update();
 }
 
+void TerminalView::beginSearch()
+{
+    if (!m_searchActive) {
+        m_searchActive = true;
+        rebuildSearchMatches(false);
+    }
+    emit searchRequested();
+    emit searchChanged();
+    update();
+}
+
+void TerminalView::endSearch()
+{
+    if (!m_searchActive && m_searchQuery.isEmpty() && m_searchMatches.empty()) {
+        return;
+    }
+
+    m_searchActive = false;
+    m_searchQuery.clear();
+    m_searchMatches.clear();
+    m_currentSearchIndex = -1;
+    emit searchChanged();
+    update();
+}
+
+void TerminalView::findNext()
+{
+    if (m_searchMatches.empty()) {
+        return;
+    }
+
+    const int count = static_cast<int>(m_searchMatches.size());
+    const int next = m_currentSearchIndex < 0 ? 0 : (m_currentSearchIndex + 1) % count;
+    activateSearchMatch(next);
+}
+
+void TerminalView::findPrevious()
+{
+    if (m_searchMatches.empty()) {
+        return;
+    }
+
+    const int count = static_cast<int>(m_searchMatches.size());
+    const int previous = m_currentSearchIndex < 0
+        ? count - 1
+        : (m_currentSearchIndex - 1 + count) % count;
+    activateSearchMatch(previous);
+}
+
 void TerminalView::paint(QPainter* painter)
 {
     painter->fillRect(boundingRect(), TerminalScreen::defaultBackground());
@@ -198,6 +283,9 @@ void TerminalView::paint(QPainter* painter)
 
     const QColor selectionBackground(QStringLiteral("#2d4767"));
     const QColor selectionForeground(QStringLiteral("#f4f7fb"));
+    const QColor searchBackground(QStringLiteral("#39424f"));
+    const QColor searchCurrentBackground(QStringLiteral("#756129"));
+    const QColor searchForeground(QStringLiteral("#f4f7fb"));
 
     const int historyStart = visibleHistoryStart();
     for (int rowIndex = 0; rowIndex < screen.rows(); ++rowIndex) {
@@ -221,6 +309,12 @@ void TerminalView::paint(QPainter* painter)
             }
             if (cell.style.faint) {
                 foreground.setAlphaF(foreground.alphaF() * 0.58);
+            }
+
+            const int searchHighlight = searchHighlightAt(historyStart + rowIndex, column);
+            if (searchHighlight > 0) {
+                background = searchHighlight == 2 ? searchCurrentBackground : searchBackground;
+                foreground = searchForeground;
             }
 
             const bool selected = isCellSelected(rowIndex, column);
@@ -296,29 +390,52 @@ void TerminalView::geometryChange(const QRectF& newGeometry, const QRectF& oldGe
 
 void TerminalView::keyPressEvent(QKeyEvent* event)
 {
-    if (!m_session || !m_session->running()) {
+    if (!m_session) {
         event->ignore();
         return;
     }
-
-    wakeCursor();
 
     const Qt::KeyboardModifiers modifiers = event->modifiers();
     const bool ctrl = modifiers.testFlag(Qt::ControlModifier);
     const bool shift = modifiers.testFlag(Qt::ShiftModifier);
     const bool alt = modifiers.testFlag(Qt::AltModifier);
 
+    // Search and copying remain useful even if the foreground shell/process
+    // has already exited and the pane is showing historical output.
+    if (ctrl && !alt && event->key() == Qt::Key_F) {
+        beginSearch();
+        event->accept();
+        return;
+    }
+
+    if (m_searchActive && !ctrl && !alt && event->key() == Qt::Key_F3) {
+        if (shift) {
+            findPrevious();
+        } else {
+            findNext();
+        }
+        event->accept();
+        return;
+    }
+
     // Standard desktop copy, without sacrificing Unix ^C:
     // active selection => copy; otherwise Ctrl+C interrupts the foreground job.
     if (ctrl && !alt && event->key() == Qt::Key_C) {
         if (hasSelection()) {
             copySelection();
-        } else if (!shift) {
+        } else if (!shift && m_session->running()) {
             m_session->sendInterrupt();
         }
         event->accept();
         return;
     }
+
+    if (!m_session->running()) {
+        event->ignore();
+        return;
+    }
+
+    wakeCursor();
 
     // Ctrl+V is the normal paste shortcut. Ctrl+Shift+V remains an alias.
     if (ctrl && !alt && event->key() == Qt::Key_V) {
@@ -823,6 +940,119 @@ void TerminalView::autoScrollSelection()
     // Stop burning timer wakeups when the beginning/end of history is reached.
     if (m_scrollbackOffset == previousOffset) {
         m_selectionAutoScrollTimer.stop();
+    }
+}
+
+int TerminalView::searchHighlightAt(int historyRow, int column) const noexcept
+{
+    if (!m_searchActive || m_searchMatches.empty()) {
+        return 0;
+    }
+
+    const auto pointLess = [](int lhsRow, int lhsColumn, int rhsRow, int rhsColumn) {
+        return lhsRow < rhsRow || (lhsRow == rhsRow && lhsColumn < rhsColumn);
+    };
+
+    const auto within = [historyRow, column, &pointLess](const TerminalSearchMatch& match) {
+        return !pointLess(historyRow, column, match.startRow, match.startColumn)
+            && !pointLess(match.endRow, match.endColumn, historyRow, column);
+    };
+
+    if (m_currentSearchIndex >= 0
+        && m_currentSearchIndex < static_cast<int>(m_searchMatches.size())
+        && within(m_searchMatches.at(static_cast<std::size_t>(m_currentSearchIndex)))) {
+        return 2;
+    }
+
+    // Matches are produced in terminal-history order. Their end positions are
+    // therefore monotonic as well, so skip directly to the first match that
+    // can still contain this cell instead of scanning every result per paint.
+    const auto candidate = std::lower_bound(
+        m_searchMatches.begin(),
+        m_searchMatches.end(),
+        std::pair<int, int>{historyRow, column},
+        [&pointLess](const TerminalSearchMatch& match, const std::pair<int, int>& point) {
+            return pointLess(match.endRow, match.endColumn, point.first, point.second);
+        });
+
+    if (candidate != m_searchMatches.end() && within(*candidate)) {
+        return 1;
+    }
+
+    return 0;
+}
+
+void TerminalView::rebuildSearchMatches(bool preserveCurrent)
+{
+    TerminalSearchMatch previousMatch{};
+    bool hadPrevious = false;
+    if (preserveCurrent
+        && m_currentSearchIndex >= 0
+        && m_currentSearchIndex < static_cast<int>(m_searchMatches.size())) {
+        previousMatch = m_searchMatches.at(static_cast<std::size_t>(m_currentSearchIndex));
+        hadPrevious = true;
+    }
+
+    m_searchMatches.clear();
+    m_currentSearchIndex = -1;
+
+    if (m_session && m_searchActive && !m_searchQuery.isEmpty()) {
+        m_searchMatches = findTerminalMatches(
+            m_session->screen(),
+            m_searchQuery,
+            m_searchCaseSensitive ? Qt::CaseSensitive : Qt::CaseInsensitive);
+
+        if (!m_searchMatches.empty()) {
+            if (hadPrevious) {
+                const auto found = std::find(m_searchMatches.begin(), m_searchMatches.end(), previousMatch);
+                if (found != m_searchMatches.end()) {
+                    m_currentSearchIndex = static_cast<int>(std::distance(m_searchMatches.begin(), found));
+                }
+            }
+
+            if (m_currentSearchIndex < 0) {
+                // Start at the newest match, which is normally the most useful
+                // result when searching command output from the bottom prompt.
+                m_currentSearchIndex = static_cast<int>(m_searchMatches.size()) - 1;
+            }
+
+            scrollToSearchMatch(m_searchMatches.at(static_cast<std::size_t>(m_currentSearchIndex)));
+        }
+    }
+
+    emit searchChanged();
+    update();
+}
+
+void TerminalView::activateSearchMatch(int index)
+{
+    if (index < 0 || index >= static_cast<int>(m_searchMatches.size())) {
+        return;
+    }
+
+    m_currentSearchIndex = index;
+    scrollToSearchMatch(m_searchMatches.at(static_cast<std::size_t>(index)));
+    emit searchChanged();
+    update();
+}
+
+void TerminalView::scrollToSearchMatch(const TerminalSearchMatch& match)
+{
+    if (!m_session || m_session->screen().alternateScreenActive()) {
+        return;
+    }
+
+    const TerminalScreen& screen = m_session->screen();
+    const int bottomStart = std::max(0, screen.historyRows() - screen.rows());
+    const int centeredStart = std::clamp(
+        match.startRow - std::max(0, screen.rows() / 2),
+        0,
+        bottomStart);
+    const int nextOffset = std::clamp(bottomStart - centeredStart, 0, screen.scrollbackRows());
+
+    if (nextOffset != m_scrollbackOffset) {
+        m_scrollbackOffset = nextOffset;
+        emit scrollbackChanged();
     }
 }
 

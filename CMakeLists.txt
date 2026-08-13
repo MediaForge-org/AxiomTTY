@@ -11,7 +11,7 @@ set(CMAKE_CXX_EXTENSIONS OFF)
 set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 
 set(AXIOMTTY_DEVELOPMENT_STAGE "pre-alpha")
-set(AXIOMTTY_MILESTONE "M2-session-polish-r3")
+set(AXIOMTTY_MILESTONE "M2-pane-lifecycle-r5")
 
 option(AXIOMTTY_WARNINGS_AS_ERRORS "Treat compiler warnings as errors" OFF)
 option(AXIOMTTY_BUILD_TESTS "Build terminal core smoke tests" ON)
@@ -22,6 +22,8 @@ qt_standard_project_setup(REQUIRES 6.8)
 set(AXIOMTTY_CORE_SOURCES
     src/terminal/TerminalScreen.cpp
     src/terminal/TerminalScreen.h
+    src/terminal/TerminalSearch.cpp
+    src/terminal/TerminalSearch.h
     src/terminal/VtParser.cpp
     src/terminal/VtParser.h
 )
@@ -46,6 +48,8 @@ set(AXIOMTTY_QML_FILES
     qml/TerminalPane.qml
     qml/SplitNodeView.qml
     qml/SessionTab.qml
+    qml/SearchBar.qml
+    qml/CloseConfirmPopup.qml
     qml/SplitControlButton.qml
     qml/TopBar.qml
     qml/StatusBar.qml

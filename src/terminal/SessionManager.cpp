@@ -158,6 +158,24 @@ void SessionManager::resetTabTitle(int index)
     renameTab(index, {});
 }
 
+void SessionManager::requestCloseTab(int index)
+{
+    if (index < 0 || index >= rowCount()) {
+        return;
+    }
+
+    if (!tabHasBusyProcesses(index)) {
+        closeTab(index);
+        return;
+    }
+
+    clearPendingClose();
+    m_pendingCloseKind = PendingCloseKind::Tab;
+    m_pendingCloseTabIndex = index;
+    emit closeConfirmationRequested(
+        QStringLiteral("One or more programs are still running in this tab. Close it anyway?"));
+}
+
 void SessionManager::closeTab(int index)
 {
     if (index < 0 || index >= rowCount()) {
@@ -256,6 +274,36 @@ void SessionManager::splitDown()
     splitActive(Qt::Vertical);
 }
 
+void SessionManager::duplicateActivePaneRight()
+{
+    splitActive(Qt::Horizontal, true);
+}
+
+void SessionManager::duplicateActivePaneDown()
+{
+    splitActive(Qt::Vertical, true);
+}
+
+void SessionManager::requestCloseActivePane()
+{
+    TabState* tab = currentTab();
+    if (tab == nullptr || tab->activeSession == nullptr) {
+        return;
+    }
+
+    if (!activePaneHasBusyProcess()) {
+        closeActivePane();
+        return;
+    }
+
+    clearPendingClose();
+    m_pendingCloseKind = PendingCloseKind::Pane;
+    m_pendingCloseTabIndex = m_currentIndex;
+    m_pendingCloseSession = tab->activeSession;
+    emit closeConfirmationRequested(
+        QStringLiteral("A program is still running in this pane. Close the pane anyway?"));
+}
+
 void SessionManager::closeActivePane()
 {
     TabState* tab = currentTab();
@@ -322,6 +370,72 @@ void SessionManager::previousPane()
     const int current = leaves.indexOf(tab->activeSession);
     const int previous = current < 0 ? 0 : (current - 1 + leaves.size()) % leaves.size();
     setActivePane(*tab, leaves.at(previous));
+}
+
+void SessionManager::focusPaneLeft()
+{
+    focusPane(SplitNode::PaneDirection::Left);
+}
+
+void SessionManager::focusPaneRight()
+{
+    focusPane(SplitNode::PaneDirection::Right);
+}
+
+void SessionManager::focusPaneUp()
+{
+    focusPane(SplitNode::PaneDirection::Up);
+}
+
+void SessionManager::focusPaneDown()
+{
+    focusPane(SplitNode::PaneDirection::Down);
+}
+
+void SessionManager::requestCloseApplication()
+{
+    if (!anyBusyProcesses()) {
+        emit applicationCloseApproved();
+        return;
+    }
+
+    clearPendingClose();
+    m_pendingCloseKind = PendingCloseKind::Application;
+    emit closeConfirmationRequested(
+        QStringLiteral("One or more programs are still running in AxiomTTY. Close the application anyway?"));
+}
+
+void SessionManager::confirmPendingClose()
+{
+    const PendingCloseKind kind = m_pendingCloseKind;
+    const int tabIndex = m_pendingCloseTabIndex;
+    TerminalSession* session = m_pendingCloseSession;
+    clearPendingClose();
+
+    if (kind == PendingCloseKind::Tab) {
+        closeTab(tabIndex);
+        return;
+    }
+
+    if (kind == PendingCloseKind::Application) {
+        emit applicationCloseApproved();
+        return;
+    }
+
+    if (kind != PendingCloseKind::Pane || tabIndex != m_currentIndex) {
+        return;
+    }
+
+    TabState* tab = currentTab();
+    if (tab == nullptr || session == nullptr || tab->activeSession != session) {
+        return;
+    }
+    closeActivePane();
+}
+
+void SessionManager::cancelPendingClose()
+{
+    clearPendingClose();
 }
 
 void SessionManager::setCurrentIndex(int index)
@@ -506,7 +620,7 @@ void SessionManager::refreshWorkingDirectories()
     }
 }
 
-void SessionManager::splitActive(Qt::Orientation orientation)
+void SessionManager::splitActive(Qt::Orientation orientation, bool duplicateShell)
 {
     TabState* tab = currentTab();
     if (tab == nullptr || tab->root == nullptr || tab->activeSession == nullptr) {
@@ -534,7 +648,64 @@ void SessionManager::splitActive(Qt::Orientation orientation)
     emit activePaneCountChanged();
     emit activePaneIndexChanged();
 
-    session->startDefaultShellInDirectory(workingDirectory);
+    if (duplicateShell && !current->shell().isEmpty()) {
+        session->startShellInDirectory(current->shell(), workingDirectory);
+    } else {
+        session->startDefaultShellInDirectory(workingDirectory);
+    }
+}
+
+void SessionManager::focusPane(SplitNode::PaneDirection direction)
+{
+    TabState* tab = currentTab();
+    if (tab == nullptr || tab->root == nullptr || tab->activeSession == nullptr) {
+        return;
+    }
+
+    TerminalSession* neighbor = tab->root->neighborSession(tab->activeSession, direction);
+    if (neighbor != nullptr) {
+        setActivePane(*tab, neighbor);
+    }
+}
+
+bool SessionManager::tabHasBusyProcesses(int index) const
+{
+    if (index < 0 || index >= rowCount()) {
+        return false;
+    }
+
+    const TabState& tab = m_tabs.at(index);
+    return std::any_of(tab.sessions.cbegin(), tab.sessions.cend(), [](const TerminalSession* session) {
+        return session != nullptr && session->hasChildProcesses();
+    });
+}
+
+bool SessionManager::activePaneHasBusyProcess() const
+{
+    const TabState* tab = currentTab();
+    return tab != nullptr
+        && tab->activeSession != nullptr
+        && tab->activeSession->hasChildProcesses();
+}
+
+bool SessionManager::anyBusyProcesses() const
+{
+    for (const TabState& tab : m_tabs) {
+        const bool busy = std::any_of(tab.sessions.cbegin(), tab.sessions.cend(), [](const TerminalSession* session) {
+            return session != nullptr && session->hasChildProcesses();
+        });
+        if (busy) {
+            return true;
+        }
+    }
+    return false;
+}
+
+void SessionManager::clearPendingClose()
+{
+    m_pendingCloseKind = PendingCloseKind::None;
+    m_pendingCloseTabIndex = -1;
+    m_pendingCloseSession = nullptr;
 }
 
 void SessionManager::setActivePane(TabState& tab, TerminalSession* session)

@@ -45,6 +45,7 @@ QString TerminalSession::title() const { return m_title; }
 QString TerminalSession::shell() const { return m_shell; }
 bool TerminalSession::running() const { return m_process.isRunning(); }
 qint64 TerminalSession::processId() const { return m_process.processId(); }
+bool TerminalSession::hasChildProcesses() const { return m_process.hasChildProcesses(); }
 bool TerminalSession::applicationCursorKeys() const { return m_screen.applicationCursorKeys(); }
 bool TerminalSession::bracketedPaste() const { return m_screen.bracketedPaste(); }
 int TerminalSession::rows() const noexcept { return m_screen.rows(); }

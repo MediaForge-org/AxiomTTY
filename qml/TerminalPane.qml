@@ -73,6 +73,19 @@ FocusScope {
                 root.copyNotice = true
                 copyNoticeTimer.restart()
             }
+
+            onSearchRequested: searchBar.focusInput()
+        }
+
+        SearchBar {
+            id: searchBar
+            anchors.top: parent.top
+            anchors.right: parent.right
+            anchors.topMargin: 10
+            anchors.rightMargin: 12
+            terminalView: terminalView
+            visible: terminalView.searchActive
+            z: 40
         }
 
         Rectangle {
