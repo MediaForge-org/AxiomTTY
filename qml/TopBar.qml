@@ -9,6 +9,7 @@ Rectangle {
 
     required property var sessionManager
     required property var appWindow
+    signal settingsRequested()
 
     implicitHeight: Theme.headerHeight
     color: Theme.panel
@@ -109,7 +110,7 @@ Rectangle {
 
         ListView {
             id: tabList
-            Layout.preferredWidth: Math.min(contentWidth, Math.max(190, root.width - 108 - 36 - 60 - 144 - 100))
+            Layout.preferredWidth: Math.min(contentWidth, Math.max(190, root.width - 108 - 36 - 60 - 180 - 100))
             Layout.preferredHeight: 32
             Layout.leftMargin: 4
             orientation: ListView.Horizontal
@@ -159,6 +160,12 @@ Rectangle {
                         root.appWindow.showMaximized()
                 }
             }
+        }
+
+        HeaderActionButton {
+            label: "⚙"
+            toolTipText: "Settings  ·  Ctrl+,"
+            onClicked: root.settingsRequested()
         }
 
         Row {

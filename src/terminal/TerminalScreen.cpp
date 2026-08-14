@@ -46,6 +46,10 @@ int TerminalScreen::scrollbackRows() const noexcept
 {
     return m_alternateScreen ? 0 : static_cast<int>(m_scrollback.size());
 }
+int TerminalScreen::maxScrollbackRows() const noexcept
+{
+    return static_cast<int>(m_maxScrollbackRows);
+}
 int TerminalScreen::historyRows() const noexcept { return scrollbackRows() + m_rows; }
 
 const TerminalScreen::Row& TerminalScreen::row(int index) const
@@ -198,7 +202,22 @@ void TerminalScreen::reset()
     m_alternateRows.assign(static_cast<std::size_t>(m_rows), blankRow());
 }
 
-void TerminalScreen::resize(int rowsValue, int columnsValue)
+
+void TerminalScreen::setMaxScrollbackRows(int rowsValue)
+{
+    const int clamped = std::clamp(rowsValue, 100, 200000);
+    const std::size_t next = static_cast<std::size_t>(clamped);
+    if (m_maxScrollbackRows == next) {
+        return;
+    }
+
+    m_maxScrollbackRows = next;
+    while (m_scrollback.size() > m_maxScrollbackRows) {
+        m_scrollback.pop_front();
+    }
+}
+
+void TerminalScreen::resize(int rowsValue, int columnsValue, TerminalResizeMode mode)
 {
     const int newRows = std::max(1, rowsValue);
     const int newColumns = std::max(1, columnsValue);
@@ -237,13 +256,55 @@ void TerminalScreen::resize(int rowsValue, int columnsValue)
         resizeColumns(rowValue);
     }
 
-    if (rowDelta < 0) {
+    if (mode == TerminalResizeMode::PreserveViewportTop) {
+        // Font changes alter rows/columns while the QML viewport itself stays
+        // fixed. Do not reveal older scrollback merely because a smaller font
+        // creates extra rows. Likewise, when shrinking, discard unused rows at
+        // the bottom first and only move top rows into history when required to
+        // keep the cursor visible.
+        if (rowDelta < 0) {
+            const int primaryCursor = m_alternateScreen ? m_primaryCursorRow : m_cursorRow;
+            const int primaryShift = std::clamp(primaryCursor - (newRows - 1), 0, -rowDelta);
+            for (int index = 0; index < primaryShift && !m_primaryRows.empty(); ++index) {
+                m_scrollback.push_back(m_primaryRows.front());
+                m_primaryRows.erase(m_primaryRows.begin());
+            }
+            while (m_scrollback.size() > m_maxScrollbackRows) {
+                m_scrollback.pop_front();
+            }
+
+            if (m_alternateScreen) {
+                m_primaryCursorRow = std::max(0, m_primaryCursorRow - primaryShift);
+
+                const int alternateShift = std::clamp(m_cursorRow - (newRows - 1), 0, -rowDelta);
+                if (alternateShift > 0 && static_cast<int>(m_alternateRows.size()) >= alternateShift) {
+                    m_alternateRows.erase(
+                        m_alternateRows.begin(),
+                        m_alternateRows.begin() + alternateShift);
+                    m_cursorRow = std::max(0, m_cursorRow - alternateShift);
+                }
+            } else {
+                m_cursorRow = std::max(0, m_cursorRow - primaryShift);
+            }
+        }
+
+        // Growing in this mode intentionally appends empty rows instead of
+        // pulling historical rows back into the live screen. This keeps the
+        // current prompt/content at the same logical viewport row while the
+        // user changes font size.
+        while (static_cast<int>(m_primaryRows.size()) < newRows) {
+            m_primaryRows.push_back(blankRow());
+        }
+        while (static_cast<int>(m_alternateRows.size()) < newRows) {
+            m_alternateRows.push_back(blankRow());
+        }
+    } else if (rowDelta < 0) {
         const int removeCount = -rowDelta;
         for (int index = 0; index < removeCount && !m_primaryRows.empty(); ++index) {
             m_scrollback.push_back(m_primaryRows.front());
             m_primaryRows.erase(m_primaryRows.begin());
         }
-        while (m_scrollback.size() > MaxScrollbackRows) {
+        while (m_scrollback.size() > m_maxScrollbackRows) {
             m_scrollback.pop_front();
         }
 
@@ -903,7 +964,7 @@ void TerminalScreen::scrollRegionUp(int count, bool collectScrollback)
     for (int i = 0; i < amount; ++i) {
         if (collectScrollback) {
             m_scrollback.push_back(rowsBuffer[static_cast<std::size_t>(m_scrollTop)]);
-            if (m_scrollback.size() > MaxScrollbackRows) {
+            if (m_scrollback.size() > m_maxScrollbackRows) {
                 m_scrollback.pop_front();
             }
         }

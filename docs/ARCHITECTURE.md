@@ -26,7 +26,7 @@ The GUI does not own process semantics. The terminal emulator does not know
 about future workspaces or package-manager UI. The future own shell remains a
 separate component and can later be built as a standalone executable.
 
-## Current milestone — M2.5 Pane Navigation & Lifecycle
+## Current milestone — M3.1 Settings Foundation
 
 Implemented:
 
@@ -59,6 +59,10 @@ Implemented:
 - split-tree directional pane neighbour resolution
 - child-process-aware pane/tab/application close requests
 - fresh-PTY pane duplication with shell/CWD inheritance
+- persistent `AppSettings` service backed by an XDG config INI file
+- live scrollback-capacity propagation to existing sessions
+- settings-driven new-tab shell/start-directory behavior
+- natural final-pane/final-tab application close semantics
 
 Installed Linux commands continue to be real executables. `git`, `dnf`, `sudo`,
 `ssh`, `docker`, `cmake`, etc. are not reimplemented.
@@ -106,3 +110,12 @@ changing PTY, parser or screen-model architecture.
 PTY shell currently has child processes. Plain idle shells retain immediate close
 behavior. Pane duplication creates a fresh PTY using the active pane's shell and CWD;
 it does not clone process memory or terminal scrollback.
+
+
+## Settings ownership
+
+`AppSettings` is a C++ application service exposed to QML as `appSettings`. It owns persistent product configuration and writes to the XDG configuration root under `axiomtty/settings.ini`. QML presents and edits those values; terminal/process semantics remain in C++.
+
+Font settings bind directly to each `TerminalView`, so existing panes update live. Scrollback capacity is propagated by `SessionManager` into every existing `TerminalSession`/`TerminalScreen`. Shell and start-directory settings intentionally affect newly created tabs rather than replacing already-running PTYs.
+
+The final-pane lifecycle is also owned by `SessionManager`: removing the only pane removes the tab, and removing the final tab emits application-close approval. The manager never creates an implicit replacement shell as a side effect of closing.

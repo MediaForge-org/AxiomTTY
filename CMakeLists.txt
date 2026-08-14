@@ -11,7 +11,7 @@ set(CMAKE_CXX_EXTENSIONS OFF)
 set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 
 set(AXIOMTTY_DEVELOPMENT_STAGE "pre-alpha")
-set(AXIOMTTY_MILESTONE "M2-pane-lifecycle-r5")
+set(AXIOMTTY_MILESTONE "M3-settings-r1.3")
 
 option(AXIOMTTY_WARNINGS_AS_ERRORS "Treat compiler warnings as errors" OFF)
 option(AXIOMTTY_BUILD_TESTS "Build terminal core smoke tests" ON)
@@ -30,6 +30,8 @@ set(AXIOMTTY_CORE_SOURCES
 
 qt_add_executable(axiomtty
     src/main.cpp
+    src/app/AppSettings.cpp
+    src/app/AppSettings.h
     src/terminal/PtyProcess.cpp
     src/terminal/SessionManager.cpp
     src/terminal/SessionManager.h
@@ -50,6 +52,8 @@ set(AXIOMTTY_QML_FILES
     qml/SessionTab.qml
     qml/SearchBar.qml
     qml/CloseConfirmPopup.qml
+    qml/SettingsDialog.qml
+    qml/HeaderActionButton.qml
     qml/SplitControlButton.qml
     qml/TopBar.qml
     qml/StatusBar.qml
@@ -125,6 +129,38 @@ if(AXIOMTTY_BUILD_TESTS)
     endif()
     axiomtty_enable_warnings(split_tree_smoke)
     add_test(NAME split_tree_smoke COMMAND split_tree_smoke)
+
+    qt_add_executable(settings_smoke
+        tests/settings_smoke.cpp
+        src/app/AppSettings.cpp
+        src/app/AppSettings.h
+    )
+    target_include_directories(settings_smoke PRIVATE src)
+    target_link_libraries(settings_smoke PRIVATE Qt6::Core)
+    axiomtty_enable_warnings(settings_smoke)
+    add_test(NAME settings_smoke COMMAND settings_smoke)
+
+    qt_add_executable(session_manager_smoke
+        tests/session_manager_smoke.cpp
+        src/app/AppSettings.cpp
+        src/app/AppSettings.h
+        src/terminal/SessionManager.cpp
+        src/terminal/SessionManager.h
+        src/terminal/SplitNode.cpp
+        src/terminal/SplitNode.h
+        src/terminal/TerminalSession.cpp
+        src/terminal/TerminalSession.h
+        src/terminal/PtyProcess.cpp
+        src/terminal/PtyProcess.h
+        ${AXIOMTTY_CORE_SOURCES}
+    )
+    target_include_directories(session_manager_smoke PRIVATE src)
+    target_link_libraries(session_manager_smoke PRIVATE Qt6::Core Qt6::Gui)
+    if(UTIL_LIBRARY)
+        target_link_libraries(session_manager_smoke PRIVATE ${UTIL_LIBRARY})
+    endif()
+    axiomtty_enable_warnings(session_manager_smoke)
+    add_test(NAME session_manager_smoke COMMAND session_manager_smoke)
 
     add_executable(pty_smoke tests/pty_smoke.cpp)
     add_executable(pty_shell_input_smoke tests/pty_shell_input_smoke.cpp)

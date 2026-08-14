@@ -10,6 +10,7 @@
 
 #include "SplitNode.h"
 
+class AppSettings;
 class TerminalSession;
 
 class SessionManager final : public QAbstractListModel
@@ -34,7 +35,7 @@ public:
     };
     Q_ENUM(Role)
 
-    explicit SessionManager(QObject* parent = nullptr);
+    explicit SessionManager(AppSettings* settings, QObject* parent = nullptr);
 
     [[nodiscard]] int rowCount(const QModelIndex& parent = QModelIndex()) const override;
     [[nodiscard]] QVariant data(const QModelIndex& index, int role) const override;
@@ -110,6 +111,8 @@ private:
     [[nodiscard]] TerminalSession* sessionAtTab(int index) const;
     [[nodiscard]] QString displayTitle(const TabState& tab) const;
     [[nodiscard]] QString inheritedWorkingDirectory() const;
+    [[nodiscard]] QString configuredStartDirectory() const;
+    [[nodiscard]] QString configuredDefaultShell() const;
     [[nodiscard]] int tabIndexForSession(const TerminalSession* session) const;
     [[nodiscard]] bool anyRunning(const TabState& tab) const;
     void connectSession(TerminalSession* session);
@@ -124,6 +127,7 @@ private:
     void setActivePane(TabState& tab, TerminalSession* session);
     void emitCurrentTabStateChanged(const QVector<int>& roles = {});
 
+    AppSettings* m_settings{nullptr};
     QVector<TabState> m_tabs;
     int m_currentIndex{-1};
     QTimer m_cwdRefreshTimer;

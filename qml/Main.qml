@@ -35,6 +35,7 @@ ApplicationWindow {
             Layout.fillWidth: true
             sessionManager: sessions
             appWindow: root
+            onSettingsRequested: settingsDialog.open()
         }
 
         SplitNodeView {
@@ -119,6 +120,16 @@ ApplicationWindow {
         onPressed: root.startSystemResize(Qt.RightEdge | Qt.BottomEdge)
     }
 
+
+    SettingsDialog {
+        id: settingsDialog
+        parent: Overlay.overlay
+        x: Math.round((parent.width - width) / 2)
+        y: Math.round((parent.height - height) / 2)
+        z: 1900
+        settingsObject: appSettings
+    }
+
     CloseConfirmPopup {
         id: closeConfirmPopup
         parent: Overlay.overlay
@@ -139,6 +150,12 @@ ApplicationWindow {
             root.allowWindowClose = true
             Qt.callLater(function() { root.close() })
         }
+    }
+
+
+    Shortcut {
+        sequence: "Ctrl+,"
+        onActivated: settingsDialog.open()
     }
 
     Shortcut {

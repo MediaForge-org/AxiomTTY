@@ -33,6 +33,7 @@ public:
     [[nodiscard]] bool bracketedPaste() const;
     [[nodiscard]] int rows() const noexcept;
     [[nodiscard]] int columns() const noexcept;
+    [[nodiscard]] int scrollbackLimit() const noexcept;
     [[nodiscard]] QString workingDirectory() const;
     [[nodiscard]] const TerminalScreen& screen() const noexcept;
 
@@ -48,6 +49,8 @@ public slots:
     void sendSuspend();
     void clearDisplay();
     void resizeTerminal(int rows, int columns);
+    void resizeTerminalPreservingViewport(int rows, int columns);
+    void setScrollbackLimit(int lines);
     void refreshWorkingDirectory();
     void setInitialWorkingDirectory(const QString& workingDirectory);
 
@@ -62,6 +65,7 @@ signals:
     void workingDirectoryChanged();
 
 private:
+    void resizeTerminalImpl(int rows, int columns, TerminalResizeMode mode);
     void consumeOutput(const QByteArray& bytes);
     void writeParserResponse(const QByteArray& bytes);
     void setTitle(const QString& title);

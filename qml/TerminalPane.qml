@@ -61,7 +61,8 @@ FocusScope {
             anchors.topMargin: 12
             anchors.bottomMargin: 12
             session: root.session
-            fontPixelSize: Theme.terminalFontSize
+            fontFamily: appSettings.terminalFontFamily
+            fontPixelSize: appSettings.terminalFontSize
             focus: true
 
             onActiveFocusChanged: {

@@ -60,9 +60,9 @@ Remaining M1 refinements:
 M1 exit criterion: the compatibility probes should behave correctly enough that
 AxiomTTY can serve as a normal interactive Linux terminal for everyday use.
 
-## M2 — Sessions, tabs and splits — IN PROGRESS
+## M2 — Sessions, tabs and splits — DONE
 
-Completed through M2.4:
+Completed through M2.6 lifecycle finalization:
 - many simultaneous PTYs across tabs
 - independent terminal state and scrollback per session
 - inherited Linux working directory for new tabs/panes
@@ -77,19 +77,33 @@ Completed through M2.4:
 - pane-local full-scrollback search with highlighted/current matches
 - search navigation, case sensitivity and soft-wrap-aware matching
 
-Remaining M2 work:
-- pane duplication and richer clone/layout operations
-- tab pin/reorder and drag between windows
-- directional pane navigation based on geometry
-- layout/session restore groundwork
-- notifications for completed long-running commands
+M2 exit refinements completed:
+- geometric pane navigation
+- active-pane duplication
+- child-process-aware close confirmation
+- natural last-pane/last-tab close semantics (no silent replacement shell)
 
-## M3 — Product-quality interaction
+Deferred richer session operations (reorder/pin/layout cloning) move into later product polish.
+
+## M3 — Product-quality interaction — IN PROGRESS
+
+M3.1 Settings Foundation completed:
+- persistent `QSettings`-backed configuration under `~/.config/axiomtty/settings.ini`
+- `Ctrl+,` and header Settings entry point
+- live terminal font family and font size with viewport-stable font-metric resizing
+- fixed internal scrollback retention for now; no normal user-facing limit control
+- default shell and start directory for new tabs
+- optional active-CWD inheritance for new tabs
+- optional close confirmation for running child processes
+- settings persistence smoke coverage
+
+Next M3 work:
+- themes and terminal color schemes
+- reusable profiles
 - search UX polish (regex/whole-word/filter options)
-- completion UI
 - link/path detection
 - command palette
-- profiles and themes
+- session/workspace restore groundwork
 
 ## M4 — Own Linux-style shell
 - lexer and parser
@@ -209,3 +223,20 @@ tab lifecycle operations such as rename, reorder and duplicate.
 - duplicate active pane while inheriting shell + working directory
 - confirmation before closing panes/tabs/application with child processes
 - keep idle-shell close actions immediate
+
+
+## M2.6 — Lifecycle finalization
+
+- closing the last pane now closes its tab
+- closing the final tab closes AxiomTTY instead of silently starting a new shell
+- existing running-process confirmation remains in front of destructive closes
+
+## M3.1 — Settings Foundation
+
+- persistent settings file in the XDG config directory (`axiomtty/settings.ini`)
+- live terminal font family/size with viewport-stable resizing
+- fixed internal scrollback retention for now; no normal user-facing limit control
+- configurable new-tab shell and start directory
+- toggle for active-CWD inheritance
+- toggle for running-process close confirmation
+- Settings dialog via header button or `Ctrl+,`

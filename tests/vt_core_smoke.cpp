@@ -71,6 +71,14 @@ int main(int argc, char* argv[])
     if (!expect(historyScreen.historyRow(0).at(0).text == QStringLiteral("o"), "scrollback row access")) return 1;
     if (!expect(historyScreen.textInHistoryRange(0, 0, 3, 4) == QStringLiteral("one\ntwo\nthree\nfour"), "history text extraction")) return 1;
 
+    TerminalScreen limitedHistoryScreen(2, 12);
+    limitedHistoryScreen.setMaxScrollbackRows(100);
+    for (int line = 0; line < 150; ++line) {
+        limitedHistoryScreen.writeText(QStringLiteral("x\r\n"));
+    }
+    if (!expect(limitedHistoryScreen.maxScrollbackRows() == 100, "configurable scrollback limit")) return 1;
+    if (!expect(limitedHistoryScreen.scrollbackRows() <= 100, "scrollback limit trimming")) return 1;
+
     TerminalScreen unicodeScreen(3, 12);
     unicodeScreen.writeText(QStringLiteral("A界e\u0301"));
     if (!expect(unicodeScreen.cell(0, 0).text == QStringLiteral("A"), "unicode ASCII lead")) return 1;
@@ -136,6 +144,24 @@ int main(int argc, char* argv[])
     if (!expect(resizeScreen.scrollbackRows() == 0, "resize can restore recent history row")) return 1;
     if (!expect(resizeScreen.row(0).at(0).text == QStringLiteral("o"), "resize restores history at top")) return 1;
 
+    TerminalScreen fontGrowScreen(3, 12);
+    VtParser fontGrowParser(fontGrowScreen);
+    fontGrowParser.consume(QByteArray("one\r\ntwo\r\nthree\r\nfour"));
+    if (!expect(fontGrowScreen.scrollbackRows() == 1, "font-resize grow setup history")) return 1;
+    fontGrowScreen.resize(5, 12, TerminalResizeMode::PreserveViewportTop);
+    if (!expect(fontGrowScreen.scrollbackRows() == 1, "font-resize grow keeps scrollback in history")) return 1;
+    if (!expect(fontGrowScreen.row(0).at(0).text == QStringLiteral("t"), "font-resize grow preserves viewport top")) return 1;
+    if (!expect(fontGrowScreen.row(2).at(0).text == QStringLiteral("f"), "font-resize grow preserves prompt/content row")) return 1;
+    if (!expect(fontGrowScreen.cursorRow() == 2, "font-resize grow keeps cursor logical row")) return 1;
+
+    TerminalScreen fontShrinkScreen(5, 12);
+    VtParser fontShrinkParser(fontShrinkScreen);
+    fontShrinkParser.consume(QByteArray("one\r\ntwo"));
+    fontShrinkScreen.resize(3, 12, TerminalResizeMode::PreserveViewportTop);
+    if (!expect(fontShrinkScreen.scrollbackRows() == 0, "font-resize shrink trims unused bottom rows first")) return 1;
+    if (!expect(fontShrinkScreen.row(0).at(0).text == QStringLiteral("o"), "font-resize shrink preserves first visible row")) return 1;
+    if (!expect(fontShrinkScreen.row(1).at(0).text == QStringLiteral("t"), "font-resize shrink preserves current prompt row")) return 1;
+    if (!expect(fontShrinkScreen.cursorRow() == 1, "font-resize shrink keeps cursor logical row when it fits")) return 1;
 
     TerminalScreen tabScreen(2, 24);
     VtParser tabParser(tabScreen);

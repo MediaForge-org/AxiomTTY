@@ -1087,12 +1087,33 @@ void TerminalView::updateMetrics()
     m_ascent = std::ceil(metrics.ascent());
 
     emit metricsChanged();
-    clearSelection();
-    updateTerminalSize();
+
+    // Font metric changes alter the terminal grid without changing the QML
+    // viewport itself. Keep the live screen stable instead of pulling older
+    // scrollback back into view while the user adjusts the font size. If the
+    // user is deliberately scrolled back, preserve that history anchor too.
+    const bool preserveHistoryAnchor = m_session
+        && m_scrollbackOffset > 0
+        && !m_session->screen().alternateScreenActive();
+    const int historyAnchor = preserveHistoryAnchor ? visibleHistoryStart() : 0;
+
+    // Window/split geometry changes continue to use the normal
+    // bottom-preserving terminal resize behaviour.
+    updateTerminalSize(true);
+
+    if (preserveHistoryAnchor && m_session) {
+        const int maximum = m_session->screen().scrollbackRows();
+        const int anchoredOffset = std::clamp(maximum - historyAnchor, 0, maximum);
+        if (anchoredOffset != m_scrollbackOffset) {
+            m_scrollbackOffset = anchoredOffset;
+            emit scrollbackChanged();
+        }
+    }
+
     update();
 }
 
-void TerminalView::updateTerminalSize()
+void TerminalView::updateTerminalSize(bool preserveViewportTop)
 {
     if (!m_session || width() <= 0.0 || height() <= 0.0 || m_cellWidth <= 0.0 || m_cellHeight <= 0.0) {
         return;
@@ -1100,5 +1121,9 @@ void TerminalView::updateTerminalSize()
 
     const int columns = std::max(1, static_cast<int>(std::floor(width() / m_cellWidth)));
     const int rows = std::max(1, static_cast<int>(std::floor(height() / m_cellHeight)));
-    m_session->resizeTerminal(rows, columns);
+    if (preserveViewportTop) {
+        m_session->resizeTerminalPreservingViewport(rows, columns);
+    } else {
+        m_session->resizeTerminal(rows, columns);
+    }
 }

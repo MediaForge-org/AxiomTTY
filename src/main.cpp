@@ -5,6 +5,7 @@
 #include <QQmlContext>
 #include <qqml.h>
 
+#include "app/AppSettings.h"
 #include "terminal/SessionManager.h"
 #include "terminal/TerminalView.h"
 
@@ -17,9 +18,11 @@ int main(int argc, char* argv[])
 
     qmlRegisterType<TerminalView>("AxiomTTY.Native", 1, 0, "TerminalView");
 
-    SessionManager sessionManager;
+    AppSettings appSettings;
+    SessionManager sessionManager(&appSettings);
 
     QQmlApplicationEngine engine;
+    engine.rootContext()->setContextProperty(QStringLiteral("appSettings"), &appSettings);
     engine.rootContext()->setContextProperty(QStringLiteral("sessions"), &sessionManager);
 
     QObject::connect(

@@ -115,7 +115,7 @@ private:
     void autoScrollSelection();
     void clampScrollbackOffset();
     void updateMetrics();
-    void updateTerminalSize();
+    void updateTerminalSize(bool preserveViewportTop = false);
     void wakeCursor();
 
     QPointer<TerminalSession> m_session;

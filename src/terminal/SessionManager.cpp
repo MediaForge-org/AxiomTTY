@@ -1,5 +1,6 @@
 #include "SessionManager.h"
 
+#include "app/AppSettings.h"
 #include "SplitNode.h"
 #include "TerminalSession.h"
 
@@ -9,13 +10,15 @@
 
 #include <algorithm>
 
-SessionManager::SessionManager(QObject* parent)
+SessionManager::SessionManager(AppSettings* settings, QObject* parent)
     : QAbstractListModel(parent)
+    , m_settings(settings)
 {
     m_cwdRefreshTimer.setInterval(650);
     m_cwdRefreshTimer.setTimerType(Qt::CoarseTimer);
     connect(&m_cwdRefreshTimer, &QTimer::timeout, this, &SessionManager::refreshWorkingDirectories);
     m_cwdRefreshTimer.start();
+
 
     newTab();
 }
@@ -112,7 +115,10 @@ int SessionManager::count() const noexcept
 
 void SessionManager::newTab()
 {
-    insertTab(rowCount(), {}, inheritedWorkingDirectory());
+    const QString directory = (m_settings != nullptr && !m_settings->inheritWorkingDirectory())
+        ? configuredStartDirectory()
+        : inheritedWorkingDirectory();
+    insertTab(rowCount(), configuredDefaultShell(), directory);
 }
 
 void SessionManager::duplicateTab(int index)
@@ -164,7 +170,7 @@ void SessionManager::requestCloseTab(int index)
         return;
     }
 
-    if (!tabHasBusyProcesses(index)) {
+    if (!tabHasBusyProcesses(index) || (m_settings != nullptr && !m_settings->confirmCloseRunningProcesses())) {
         closeTab(index);
         return;
     }
@@ -206,7 +212,7 @@ void SessionManager::closeTab(int index)
         emit activeRootChanged();
         emit activePaneCountChanged();
         emit activePaneIndexChanged();
-        newTab();
+        emit applicationCloseApproved();
         return;
     }
 
@@ -291,7 +297,12 @@ void SessionManager::requestCloseActivePane()
         return;
     }
 
-    if (!activePaneHasBusyProcess()) {
+    if (tab->sessions.size() <= 1) {
+        requestCloseTab(m_currentIndex);
+        return;
+    }
+
+    if (!activePaneHasBusyProcess() || (m_settings != nullptr && !m_settings->confirmCloseRunningProcesses())) {
         closeActivePane();
         return;
     }
@@ -394,7 +405,7 @@ void SessionManager::focusPaneDown()
 
 void SessionManager::requestCloseApplication()
 {
-    if (!anyBusyProcesses()) {
+    if (!anyBusyProcesses() || (m_settings != nullptr && !m_settings->confirmCloseRunningProcesses())) {
         emit applicationCloseApproved();
         return;
     }
@@ -550,12 +561,37 @@ QString SessionManager::inheritedWorkingDirectory() const
 {
     TerminalSession* current = sessionAtTab(m_currentIndex);
     if (current == nullptr) {
-        return QDir::homePath();
+        return configuredStartDirectory();
     }
 
     current->refreshWorkingDirectory();
     const QString directory = current->workingDirectory();
-    return directory.isEmpty() ? QDir::homePath() : directory;
+    return directory.isEmpty() ? configuredStartDirectory() : directory;
+}
+
+QString SessionManager::configuredStartDirectory() const
+{
+    QString directory = m_settings != nullptr ? m_settings->startDirectory().trimmed() : QDir::homePath();
+    if (directory.isEmpty() || directory == QStringLiteral("~")) {
+        return QDir::homePath();
+    }
+    if (directory.startsWith(QStringLiteral("~/"))) {
+        directory = QDir::homePath() + directory.mid(1);
+    }
+    return QFileInfo(directory).isDir() ? QDir(directory).absolutePath() : QDir::homePath();
+}
+
+QString SessionManager::configuredDefaultShell() const
+{
+    if (m_settings == nullptr) {
+        return {};
+    }
+    const QString shell = m_settings->defaultShell().trimmed();
+    if (shell.isEmpty()) {
+        return {};
+    }
+    const QFileInfo info(shell);
+    return info.isFile() && info.isExecutable() ? info.absoluteFilePath() : QString{};
 }
 
 int SessionManager::tabIndexForSession(const TerminalSession* session) const
@@ -651,7 +687,12 @@ void SessionManager::splitActive(Qt::Orientation orientation, bool duplicateShel
     if (duplicateShell && !current->shell().isEmpty()) {
         session->startShellInDirectory(current->shell(), workingDirectory);
     } else {
-        session->startDefaultShellInDirectory(workingDirectory);
+        const QString shell = configuredDefaultShell();
+        if (!shell.isEmpty()) {
+            session->startShellInDirectory(shell, workingDirectory);
+        } else {
+            session->startDefaultShellInDirectory(workingDirectory);
+        }
     }
 }
 

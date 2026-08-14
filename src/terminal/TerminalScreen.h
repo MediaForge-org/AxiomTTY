@@ -21,6 +21,12 @@ enum class TerminalMouseTrackingMode
     AnyEvent
 };
 
+enum class TerminalResizeMode
+{
+    PreserveBottom,
+    PreserveViewportTop
+};
+
 struct TerminalCellStyle
 {
     QColor foreground{QColor(QStringLiteral("#e9edf2"))};
@@ -71,6 +77,7 @@ public:
     [[nodiscard]] int scrollTop() const noexcept;
     [[nodiscard]] int scrollBottom() const noexcept;
     [[nodiscard]] int scrollbackRows() const noexcept;
+    [[nodiscard]] int maxScrollbackRows() const noexcept;
     [[nodiscard]] int historyRows() const noexcept;
     [[nodiscard]] const Row& row(int index) const;
     [[nodiscard]] const Row& historyRow(int index) const;
@@ -79,7 +86,8 @@ public:
     [[nodiscard]] QString textInHistoryRange(int startRow, int startColumn, int endRow, int endColumn) const;
 
     void reset();
-    void resize(int rows, int columns);
+    void resize(int rows, int columns, TerminalResizeMode mode = TerminalResizeMode::PreserveBottom);
+    void setMaxScrollbackRows(int rows);
 
     void writeText(const QString& text);
     void carriageReturn();
@@ -199,6 +207,5 @@ private:
     std::vector<Row> m_primaryRows;
     std::vector<Row> m_alternateRows;
     std::deque<Row> m_scrollback;
-
-    static constexpr std::size_t MaxScrollbackRows = 5000;
+    std::size_t m_maxScrollbackRows{5000};
 };

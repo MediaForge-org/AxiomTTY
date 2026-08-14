@@ -187,9 +187,6 @@ void PtyProcess::resize(int rows, int columns)
         return;
     }
 
-    if (m_pid > 0) {
-        ::kill(static_cast<pid_t>(m_pid), SIGWINCH);
-    }
 }
 
 void PtyProcess::sendSignal(int signalNumber)

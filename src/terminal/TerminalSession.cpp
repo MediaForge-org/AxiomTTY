@@ -50,6 +50,7 @@ bool TerminalSession::applicationCursorKeys() const { return m_screen.applicatio
 bool TerminalSession::bracketedPaste() const { return m_screen.bracketedPaste(); }
 int TerminalSession::rows() const noexcept { return m_screen.rows(); }
 int TerminalSession::columns() const noexcept { return m_screen.columns(); }
+int TerminalSession::scrollbackLimit() const noexcept { return m_screen.maxScrollbackRows(); }
 QString TerminalSession::workingDirectory() const { return m_workingDirectory; }
 const TerminalScreen& TerminalSession::screen() const noexcept { return m_screen; }
 
@@ -166,6 +167,16 @@ void TerminalSession::clearDisplay()
 
 void TerminalSession::resizeTerminal(int rowCount, int columnCount)
 {
+    resizeTerminalImpl(rowCount, columnCount, TerminalResizeMode::PreserveBottom);
+}
+
+void TerminalSession::resizeTerminalPreservingViewport(int rowCount, int columnCount)
+{
+    resizeTerminalImpl(rowCount, columnCount, TerminalResizeMode::PreserveViewportTop);
+}
+
+void TerminalSession::resizeTerminalImpl(int rowCount, int columnCount, TerminalResizeMode mode)
+{
     if (rowCount <= 0 || columnCount <= 0) {
         return;
     }
@@ -173,10 +184,19 @@ void TerminalSession::resizeTerminal(int rowCount, int columnCount)
         return;
     }
 
-    m_screen.resize(rowCount, columnCount);
+    m_screen.resize(rowCount, columnCount, mode);
     m_process.resize(rowCount, columnCount);
     emit screenChanged();
     emit terminalSizeChanged();
+}
+
+void TerminalSession::setScrollbackLimit(int lines)
+{
+    const int before = m_screen.maxScrollbackRows();
+    m_screen.setMaxScrollbackRows(lines);
+    if (before != m_screen.maxScrollbackRows()) {
+        emit screenChanged();
+    }
 }
 
 

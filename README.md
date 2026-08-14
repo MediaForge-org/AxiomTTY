@@ -1,4 +1,4 @@
-# AxiomTTY — M2.5 Pane Navigation & Lifecycle (Pre-Alpha)
+# AxiomTTY — M3.1.3 Settings Interaction Reliability (Pre-Alpha)
 
 AxiomTTY is a Linux-first terminal emulator being developed in C++23 with Qt 6/QML.
 Linux/POSIX behavior is the reference; Fedora is the first development platform.
@@ -12,7 +12,7 @@ of public semantic versions until AxiomTTY is useful as a daily terminal.
 - custom C++ VT/xterm screen model and renderer
 - 16/256/True Color, Unicode/wide cells, common DEC/xterm modes and TUI support
 - tested interactively with tools such as `less`, `nano`, `htop` and `btop`
-- 5000-line scrollback with cross-history mouse selection and edge auto-scroll
+- fixed internal scrollback retention (5000 rows for now) with cross-history mouse selection and edge auto-scroll
 - context-sensitive `Ctrl+C`: copy selection or send Unix `^C`
 - desktop-style `Ctrl+V` paste
 - multiple independent terminal tabs
@@ -26,6 +26,10 @@ of public semantic versions until AxiomTTY is useful as a daily terminal.
 - geometric four-direction pane focus navigation
 - active-pane duplication with shell/CWD inheritance and a fresh PTY
 - close protection when panes/tabs/application still contain child processes
+- natural lifecycle: closing the last pane closes its tab; closing the last tab closes AxiomTTY
+- persistent settings in `~/.config/axiomtty/settings.ini`
+- live terminal font family/size settings with viewport-stable font resizing
+- configurable default shell, start directory, CWD inheritance and close protection
 
 ## Main shortcuts
 
@@ -47,6 +51,7 @@ Alt+Shift+D         duplicate active pane to the right
 Alt+Shift+E         duplicate active pane downward
 
 Ctrl+F              search active pane scrollback
+Ctrl+,              open settings
 Enter / F3          next search result
 Shift+Enter / Shift+F3  previous search result
 Escape              close search
@@ -65,9 +70,17 @@ and terminal applications normally.
 
 `build.sh` performs a clean Debug build and runs the automated tests.
 
-## M2.5 manual test
+## M3.1.3 settings interaction reliability
 
-See `docs/TESTING_M2_5.md`. Search from M2.4 remains available; a useful history generator is:
+- Settings writes are debounced instead of calling `QSettings::sync()` inside UI input events.
+- `Reset defaults` runs on the next event-loop turn and exposes a short `Resetting…` state.
+- Reset completion is signalled by the C++ settings object; the dialog resynchronizes only after the reset is complete.
+- This avoids re-entering QML controls while their click/press event is still being processed.
+
+
+## M3.1 manual test
+
+See `docs/TESTING_M3_1.md`. M2.5 lifecycle and search regressions remain relevant. Search from M2.4 remains available; a useful history generator is:
 
 ```bash
 for i in $(seq 1 1500); do
