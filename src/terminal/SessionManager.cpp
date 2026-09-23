@@ -316,59 +316,86 @@ void SessionManager::duplicateActivePaneDown()
 
 void SessionManager::requestCloseActivePane()
 {
-    TabState* tab = currentTab();
-    if (tab == nullptr || tab->activeSession == nullptr) {
+    requestClosePane(activeSession());
+}
+
+void SessionManager::requestClosePane(QObject* sessionObject)
+{
+    auto* session = qobject_cast<TerminalSession*>(sessionObject);
+    const int tabIndex = tabIndexForSession(session);
+    if (session == nullptr || tabIndex < 0 || tabIndex >= rowCount()) {
         return;
     }
 
-    if (tab->sessions.size() <= 1) {
-        requestCloseTab(m_currentIndex);
+    const TabState& tab = m_tabs.at(tabIndex);
+    if (tab.sessions.size() <= 1) {
+        requestCloseTab(tabIndex);
         return;
     }
 
-    if (!activePaneHasBusyProcess() || (m_settings != nullptr && !m_settings->confirmCloseRunningProcesses())) {
-        closeActivePane();
+    const bool needsConfirmation = session->hasChildProcesses()
+        && (m_settings == nullptr || m_settings->confirmCloseRunningProcesses());
+    if (!needsConfirmation) {
+        closePane(session);
         return;
     }
 
     clearPendingClose();
     m_pendingCloseKind = PendingCloseKind::Pane;
-    m_pendingCloseTabIndex = m_currentIndex;
-    m_pendingCloseSession = tab->activeSession;
+    m_pendingCloseTabIndex = tabIndex;
+    m_pendingCloseSession = session;
     emit closeConfirmationRequested(
         QStringLiteral("A program is still running in this pane. Close the pane anyway?"));
 }
 
 void SessionManager::closeActivePane()
 {
-    TabState* tab = currentTab();
-    if (tab == nullptr || tab->activeSession == nullptr) {
+    closePane(activeSession());
+}
+
+void SessionManager::closePane(QObject* sessionObject)
+{
+    auto* closingSession = qobject_cast<TerminalSession*>(sessionObject);
+    const int tabIndex = tabIndexForSession(closingSession);
+    if (closingSession == nullptr || tabIndex < 0 || tabIndex >= rowCount()) {
         return;
     }
 
-    if (tab->sessions.size() <= 1) {
-        closeTab(m_currentIndex);
+    TabState& tab = m_tabs[tabIndex];
+    if (tab.sessions.size() <= 1) {
+        closeTab(tabIndex);
         return;
     }
 
-    TerminalSession* closingSession = tab->activeSession;
     TerminalSession* fallback = nullptr;
-    if (tab->root == nullptr || !tab->root->removeSession(closingSession, fallback)) {
+    if (tab.root == nullptr || !tab.root->removeSession(closingSession, fallback)) {
         return;
     }
 
-    tab->sessions.removeOne(closingSession);
-    if (fallback == nullptr && tab->root != nullptr) {
-        fallback = tab->root->firstLeafSession();
+    const bool closingActivePane = tab.activeSession == closingSession;
+    tab.sessions.removeOne(closingSession);
+    if (fallback == nullptr && tab.root != nullptr) {
+        fallback = tab.root->firstLeafSession();
     }
-    tab->activeSession = fallback;
+    if (closingActivePane) {
+        tab.activeSession = fallback;
+    }
     closingSession->deleteLater();
 
-    emitCurrentTabStateChanged({SessionRole, RootRole, TitleRole, RunningRole, WorkingDirectoryRole, ShellRole, PaneCountRole, ProfileRole});
-    emit activeSessionChanged();
-    emit activeRootChanged();
-    emit activePaneCountChanged();
-    emit activePaneIndexChanged();
+    const QModelIndex modelIndex = createIndex(tabIndex, 0);
+    emit dataChanged(modelIndex, modelIndex,
+                     {SessionRole, RootRole, TitleRole, RunningRole, WorkingDirectoryRole, ShellRole, PaneCountRole, ProfileRole});
+
+    if (tabIndex == m_currentIndex) {
+        if (closingActivePane) {
+            emit activeSessionChanged();
+            emit activePaneIndexChanged();
+        }
+        // Rebuild the visual tree for every removal so SplitView drops stale
+        // handles/sizes and redistributes all remaining logical spans evenly.
+        emit activeRootChanged();
+        emit activePaneCountChanged();
+    }
 }
 
 void SessionManager::activatePane(QObject* sessionObject)
@@ -461,11 +488,10 @@ void SessionManager::confirmPendingClose()
         return;
     }
 
-    TabState* tab = currentTab();
-    if (tab == nullptr || session == nullptr || tab->activeSession != session) {
+    if (session == nullptr || tabIndex < 0 || tabIndex >= rowCount()) {
         return;
     }
-    closeActivePane();
+    closePane(session);
 }
 
 void SessionManager::cancelPendingClose()

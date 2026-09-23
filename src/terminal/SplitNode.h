@@ -14,6 +14,8 @@ class SplitNode final : public QObject
     Q_PROPERTY(QObject* sessionObject READ sessionObject NOTIFY structureChanged)
     Q_PROPERTY(QObject* firstNode READ firstNodeObject NOTIFY structureChanged)
     Q_PROPERTY(QObject* secondNode READ secondNodeObject NOTIFY structureChanged)
+    Q_PROPERTY(int horizontalSpan READ horizontalSpan NOTIFY structureChanged)
+    Q_PROPERTY(int verticalSpan READ verticalSpan NOTIFY structureChanged)
 
 public:
     enum class PaneDirection {
@@ -30,6 +32,8 @@ public:
     [[nodiscard]] QObject* sessionObject() const;
     [[nodiscard]] QObject* firstNodeObject() const;
     [[nodiscard]] QObject* secondNodeObject() const;
+    [[nodiscard]] int horizontalSpan() const noexcept;
+    [[nodiscard]] int verticalSpan() const noexcept;
 
     [[nodiscard]] TerminalSession* session() const noexcept;
     [[nodiscard]] TerminalSession* firstLeafSession() const;
@@ -50,6 +54,7 @@ private:
     };
 
     void collectLeafSessions(QVector<TerminalSession*>& sessions) const;
+    [[nodiscard]] int paneSpan(Qt::Orientation orientation) const noexcept;
     [[nodiscard]] bool collectPath(TerminalSession* target, QVector<PathStep>& path) const;
     [[nodiscard]] TerminalSession* edgeLeaf(PaneDirection direction) const;
     void promoteChild(SplitNode* keep, SplitNode* remove);

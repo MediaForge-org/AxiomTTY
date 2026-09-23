@@ -2,6 +2,8 @@
 
 #include "TerminalSession.h"
 
+#include <algorithm>
+
 SplitNode::SplitNode(TerminalSession* session, QObject* parent)
     : QObject(parent)
     , m_session(session)
@@ -31,6 +33,16 @@ QObject* SplitNode::firstNodeObject() const
 QObject* SplitNode::secondNodeObject() const
 {
     return m_second;
+}
+
+int SplitNode::horizontalSpan() const noexcept
+{
+    return paneSpan(Qt::Horizontal);
+}
+
+int SplitNode::verticalSpan() const noexcept
+{
+    return paneSpan(Qt::Vertical);
 }
 
 TerminalSession* SplitNode::session() const noexcept
@@ -143,13 +155,19 @@ bool SplitNode::removeSession(TerminalSession* target, TerminalSession*& fallbac
     }
 
     if (m_first != nullptr && m_first->isLeaf() && m_first->session() == target) {
-        fallbackSession = m_second != nullptr ? m_second->firstLeafSession() : nullptr;
+        // Prefer the leaf directly across the removed split boundary. This
+        // makes focus after closing a pane feel spatially predictable.
+        fallbackSession = m_second != nullptr
+            ? m_second->edgeLeaf(PaneDirection::Right)
+            : nullptr;
         promoteChild(m_second, m_first);
         return true;
     }
 
     if (m_second != nullptr && m_second->isLeaf() && m_second->session() == target) {
-        fallbackSession = m_first != nullptr ? m_first->firstLeafSession() : nullptr;
+        fallbackSession = m_first != nullptr
+            ? m_first->edgeLeaf(PaneDirection::Left)
+            : nullptr;
         promoteChild(m_first, m_second);
         return true;
     }
@@ -205,6 +223,25 @@ TerminalSession* SplitNode::edgeLeaf(PaneDirection direction) const
         }
     }
     return fallback != nullptr ? fallback->edgeLeaf(direction) : nullptr;
+}
+
+int SplitNode::paneSpan(Qt::Orientation orientation) const noexcept
+{
+    if (isLeaf()) {
+        return 1;
+    }
+
+    const int firstSpan = m_first != nullptr ? m_first->paneSpan(orientation) : 0;
+    const int secondSpan = m_second != nullptr ? m_second->paneSpan(orientation) : 0;
+
+    // Consecutive splits in the same direction form equal-sized slots. A split
+    // in the perpendicular direction shares the same slot on this axis, so its
+    // span is the larger child span instead of the sum. This lets an arbitrarily
+    // nested binary split tree render as an evenly distributed grid.
+    if (m_orientation == orientation) {
+        return std::max(1, firstSpan + secondSpan);
+    }
+    return std::max(1, std::max(firstSpan, secondSpan));
 }
 
 void SplitNode::collectLeafSessions(QVector<TerminalSession*>& sessions) const

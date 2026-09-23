@@ -1,4 +1,5 @@
 import QtQuick
+import QtQuick.Controls
 import AxiomTTY
 import AxiomTTY.Native
 
@@ -13,6 +14,7 @@ FocusScope {
     property bool resizeNotice: false
 
     signal activated()
+    signal closeRequested(var session)
 
     function focusTerminal() {
         terminalView.forceActiveFocus()
@@ -55,6 +57,10 @@ FocusScope {
         function onProfileChanged() {
             root.syncSessionAppearance()
         }
+    }
+
+    HoverHandler {
+        id: paneHover
     }
 
     Rectangle {
@@ -101,19 +107,65 @@ FocusScope {
         Rectangle {
             anchors.fill: parent
             color: "transparent"
-            border.width: root.paneActive ? 1 : 0
-            border.color: Theme.accentMuted
+            border.width: root.paneActive ? 2 : 0
+            border.color: root.paneActive ? Theme.accentMuted : "transparent"
             visible: root.paneActive
         }
 
         Rectangle {
-            width: 2
-            height: 22
+            width: 3
+            height: 26
             anchors.left: parent.left
             anchors.top: parent.top
             anchors.topMargin: 10
             color: root.paneActive ? Theme.accent : "transparent"
             visible: root.paneActive
+        }
+
+
+        Rectangle {
+            id: paneCloseButton
+            anchors.top: parent.top
+            anchors.right: parent.right
+            anchors.topMargin: 7
+            anchors.rightMargin: 7
+            width: 22
+            height: 22
+            radius: Theme.radiusSmall
+            color: closeMouse.containsMouse ? Theme.hover : Theme.panel
+            border.width: 1
+            border.color: closeMouse.containsMouse ? Theme.borderStrong : Theme.border
+            visible: root.paneActive || paneHover.hovered
+            opacity: visible ? 0.92 : 0.0
+            z: 60
+
+            Behavior on opacity { NumberAnimation { duration: 80 } }
+
+            Text {
+                anchors.centerIn: parent
+                text: "×"
+                color: closeMouse.containsMouse ? Theme.danger : Theme.textMuted
+                font.family: "sans-serif"
+                font.pixelSize: 14
+            }
+
+            MouseArea {
+                id: closeMouse
+                anchors.fill: parent
+                hoverEnabled: true
+                cursorShape: Qt.PointingHandCursor
+                onPressed: function(mouse) {
+                    mouse.accepted = true
+                    root.activated()
+                }
+                onClicked: function(mouse) {
+                    mouse.accepted = true
+                    root.closeRequested(root.session)
+                }
+            }
+
+            ToolTip.visible: closeMouse.containsMouse
+            ToolTip.text: "Close pane  Ctrl+Shift+X"
         }
 
         Rectangle {

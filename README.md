@@ -1,4 +1,4 @@
-# AxiomTTY — M3.2.4 Non-Blocking Settings Persistence (Pre-Alpha)
+# AxiomTTY — M3.2.7 Pane Close & Focus Polish (Pre-Alpha)
 
 AxiomTTY is a Linux-first terminal emulator being developed in C++23 with Qt 6/QML.
 Linux/POSIX behavior is the reference; Fedora is the first development platform.
@@ -17,6 +17,8 @@ of public semantic versions until AxiomTTY is useful as a daily terminal.
 - desktop-style `Ctrl+V` paste
 - multiple independent terminal tabs
 - arbitrarily nested horizontal/vertical split panes with one PTY per leaf
+- balanced same-axis pane sizing with an 8-pane per-tab ceiling
+- explicit per-pane close control with deterministic nearest-neighbor focus after close
 - draggable split handles and independent PTY resize
 - deterministic profile start directories for fresh tabs; duplicates and split panes preserve the current CWD
 - custom tab names, automatic-title reset and tab lifecycle context menu

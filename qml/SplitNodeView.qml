@@ -6,27 +6,33 @@ Item {
     id: root
     clip: true
 
-    // These are intentionally normal properties instead of `required` ones.
-    // Child SplitNodeView instances are created dynamically by Loader below,
-    // which avoids Qt's static recursive-type rejection.
+    // Child nodes are loaded dynamically to keep recursive split trees valid in
+    // QML. The C++ tree remains binary, while span metadata lets the renderer
+    // distribute nested same-direction splits as equal visual slots.
     property var node: null
     property var sessionManager: null
 
+    function childSpan(childNode, orientation) {
+        if (!childNode)
+            return 1
+        return orientation === Qt.Horizontal
+                ? Math.max(1, childNode.horizontalSpan)
+                : Math.max(1, childNode.verticalSpan)
+    }
 
-    // SplitNode objects are mutated in-place when a pane is removed and its
-    // sibling is promoted. Recreate this visual subtree on every structural
-    // mutation so no Loader/painted-item from the removed pane can survive
-    // into the expanded sibling area.
-    Connections {
-        target: root.node
-        ignoreUnknownSignals: true
-        function onStructureChanged() {
-            contentLoader.active = false
-            Qt.callLater(function() {
-                if (root.node)
-                    contentLoader.active = true
-            })
-        }
+    function preferredFirstExtent() {
+        if (!root.node || root.node.leaf)
+            return 0
+
+        const orientation = root.node.orientation
+        const firstSpan = childSpan(root.node.firstNode, orientation)
+        const secondSpan = childSpan(root.node.secondNode, orientation)
+        const totalSpan = Math.max(1, firstSpan + secondSpan)
+        const handleExtent = 5
+        const available = orientation === Qt.Horizontal
+                ? Math.max(0, root.width - handleExtent)
+                : Math.max(0, root.height - handleExtent)
+        return available * firstSpan / totalSpan
     }
 
     Loader {
@@ -37,7 +43,7 @@ Item {
 
     Component {
         id: emptyComponent
-        Item {}
+        Rectangle { color: Theme.background }
     }
 
     Component {
@@ -51,6 +57,11 @@ Item {
                 if (session && root.sessionManager)
                     root.sessionManager.activatePane(session)
             }
+
+            onCloseRequested: function(sessionToClose) {
+                if (sessionToClose && root.sessionManager)
+                    root.sessionManager.requestClosePane(sessionToClose)
+            }
         }
     }
 
@@ -60,6 +71,7 @@ Item {
         SplitView {
             id: splitView
             anchors.fill: parent
+            clip: true
             orientation: root.node ? root.node.orientation : Qt.Horizontal
 
             handle: Rectangle {
@@ -77,15 +89,20 @@ Item {
 
             Loader {
                 id: firstChildLoader
+                clip: true
 
                 property var childNode: root.node ? root.node.firstNode : null
 
                 source: childNode ? Qt.resolvedUrl("SplitNodeView.qml") : ""
 
-                SplitView.fillWidth: splitView.orientation === Qt.Horizontal
-                SplitView.fillHeight: splitView.orientation === Qt.Vertical
-                SplitView.minimumWidth: 180
-                SplitView.minimumHeight: 120
+                // The first branch gets exactly its share of the logical slots;
+                // the second branch fills the remainder. With a horizontal chain
+                // of 8 leaves this produces 1/8 + 1/8 + ... instead of the old
+                // 1/2 + 1/4 + 1/8 cascade.
+                SplitView.preferredWidth: splitView.orientation === Qt.Horizontal ? root.preferredFirstExtent() : undefined
+                SplitView.preferredHeight: splitView.orientation === Qt.Vertical ? root.preferredFirstExtent() : undefined
+                SplitView.minimumWidth: 96
+                SplitView.minimumHeight: 72
 
                 onLoaded: {
                     item.node = childNode
@@ -100,15 +117,16 @@ Item {
 
             Loader {
                 id: secondChildLoader
+                clip: true
 
                 property var childNode: root.node ? root.node.secondNode : null
 
                 source: childNode ? Qt.resolvedUrl("SplitNodeView.qml") : ""
 
-                SplitView.preferredWidth: splitView.orientation === Qt.Horizontal ? Math.max(180, splitView.width / 2) : undefined
-                SplitView.preferredHeight: splitView.orientation === Qt.Vertical ? Math.max(120, splitView.height / 2) : undefined
-                SplitView.minimumWidth: 180
-                SplitView.minimumHeight: 120
+                SplitView.fillWidth: splitView.orientation === Qt.Horizontal
+                SplitView.fillHeight: splitView.orientation === Qt.Vertical
+                SplitView.minimumWidth: 96
+                SplitView.minimumHeight: 72
 
                 onLoaded: {
                     item.node = childNode

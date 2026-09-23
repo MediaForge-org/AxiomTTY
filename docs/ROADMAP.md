@@ -283,3 +283,11 @@ tab lifecycle operations such as rename, reorder and duplicate.
 - batch QSettings writes and sync at controlled shutdown
 - avoid synchronous Settings-form rebuilds inside Apply button events
 - preserve immediate in-memory effect for new tabs and theme changes
+
+## M3.2.7 — Pane Close & Focus Polish
+
+- explicit close target for individual panes
+- stronger active-pane indication
+- nearest-neighbor focus after pane removal
+- balanced reflow after closing panes
+- close confirmation tracks the exact pane that requested it

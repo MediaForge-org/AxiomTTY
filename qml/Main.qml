@@ -39,11 +39,43 @@ ApplicationWindow {
             onSettingsRequested: settingsDialog.open()
         }
 
-        SplitNodeView {
+        Item {
+            id: terminalArea
             Layout.fillWidth: true
             Layout.fillHeight: true
-            node: sessions.activeRoot
-            sessionManager: sessions
+            clip: true
+
+            function rebuildSplitTree() {
+                // Destroy the complete visual split tree before recreating it.
+                // Rebuilding only the mutated recursive branch can leave a
+                // QQuickPaintedItem texture from a removed pane alive for a
+                // frame (or longer on some scene-graph paths). A full rebuild
+                // makes pane removal deterministic.
+                splitTreeLoader.active = false
+                Qt.callLater(function() {
+                    splitTreeLoader.active = true
+                })
+            }
+
+            Loader {
+                id: splitTreeLoader
+                anchors.fill: parent
+                sourceComponent: splitTreeComponent
+            }
+
+            Component {
+                id: splitTreeComponent
+                SplitNodeView {
+                    node: sessions.activeRoot
+                    sessionManager: sessions
+                }
+            }
+
+            Connections {
+                target: sessions
+                function onActivePaneCountChanged() { terminalArea.rebuildSplitTree() }
+                function onActiveRootChanged() { terminalArea.rebuildSplitTree() }
+            }
         }
 
         StatusBar {

@@ -399,8 +399,14 @@ void TerminalView::geometryChange(const QRectF& newGeometry, const QRectF& oldGe
     QQuickPaintedItem::geometryChange(newGeometry, oldGeometry);
     if (newGeometry.size() != oldGeometry.size()) {
         clearSelection();
-        updateTerminalSize();
+
+        // Split insertion/removal can expose a much larger area in one frame.
+        // Keep the live viewport anchored instead of pulling old history back
+        // into the screen while the pane grows; that otherwise looks like stale
+        // text from the pane that was just closed.
+        updateTerminalSize(true);
         clampScrollbackOffset();
+        update();
     }
 }
 

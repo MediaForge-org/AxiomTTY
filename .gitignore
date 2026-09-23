@@ -9,3 +9,4 @@ compile_commands.json
 *.swo
 *.tmp
 .DS_Store
+/graphify-out

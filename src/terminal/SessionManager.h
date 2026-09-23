@@ -70,7 +70,9 @@ public:
     Q_INVOKABLE void duplicateActivePaneRight();
     Q_INVOKABLE void duplicateActivePaneDown();
     Q_INVOKABLE void requestCloseActivePane();
+    Q_INVOKABLE void requestClosePane(QObject* sessionObject);
     Q_INVOKABLE void closeActivePane();
+    Q_INVOKABLE void closePane(QObject* sessionObject);
     Q_INVOKABLE void activatePane(QObject* sessionObject);
     Q_INVOKABLE void nextPane();
     Q_INVOKABLE void previousPane();
