@@ -29,8 +29,8 @@ enum class TerminalResizeMode
 
 struct TerminalCellStyle
 {
-    QColor foreground{QColor(QStringLiteral("#e9edf2"))};
-    QColor background{QColor(QStringLiteral("#0d0f12"))};
+    QColor foreground{QColor(QStringLiteral("#e6eaf0"))};
+    QColor background{QColor(QStringLiteral("#0b0d10"))};
     bool bold{false};
     bool italic{false};
     bool underline{false};

@@ -214,12 +214,15 @@ int main(int argc, char* argv[])
     parser.consume(QByteArray("\x1b[6n"));
     if (!expect(response.startsWith("\x1b["), "cursor report response")) return 1;
 
+    parser.setDefaultColorHandler([](bool foreground) {
+        return foreground ? QColor(QStringLiteral("#112233")) : QColor(QStringLiteral("#445566"));
+    });
     response.clear();
     parser.consume(QByteArray("\x1b]10;?\a"));
-    if (!expect(response.startsWith("\x1b]10;rgb:"), "OSC 10 foreground color query")) return 1;
+    if (!expect(response.contains("rgb:1111/2222/3333"), "OSC 10 uses active profile foreground")) return 1;
     response.clear();
     parser.consume(QByteArray("\x1b]11;?\a"));
-    if (!expect(response.startsWith("\x1b]11;rgb:"), "OSC 11 background color query")) return 1;
+    if (!expect(response.contains("rgb:4444/5555/6666"), "OSC 11 uses active profile background")) return 1;
 
     qInfo() << "AxiomTTY VT core smoke OK";
     return 0;

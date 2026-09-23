@@ -18,7 +18,12 @@ FocusScope {
         terminalView.forceActiveFocus()
     }
 
+    function syncSessionAppearance() {
+        terminalView.colorScheme = root.session ? root.session.colorScheme : "Axiom Dark"
+    }
+
     onSessionChanged: {
+        syncSessionAppearance()
         if (paneActive)
             Qt.callLater(function() { terminalView.forceActiveFocus() })
     }
@@ -47,11 +52,14 @@ FocusScope {
             root.resizeNotice = true
             resizeNoticeTimer.restart()
         }
+        function onProfileChanged() {
+            root.syncSessionAppearance()
+        }
     }
 
     Rectangle {
         anchors.fill: parent
-        color: Theme.background
+        color: terminalView.terminalBackground
 
         TerminalView {
             id: terminalView
@@ -63,6 +71,7 @@ FocusScope {
             session: root.session
             fontFamily: appSettings.terminalFontFamily
             fontPixelSize: appSettings.terminalFontSize
+            colorScheme: "Axiom Dark"
             focus: true
 
             onActiveFocusChanged: {
@@ -152,6 +161,7 @@ FocusScope {
     }
 
     Component.onCompleted: {
+        syncSessionAppearance()
         if (paneActive)
             terminalView.forceActiveFocus()
     }

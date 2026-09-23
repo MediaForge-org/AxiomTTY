@@ -1,5 +1,7 @@
 #include "TerminalSession.h"
 
+#include "TerminalPalette.h"
+
 #include <QClipboard>
 #include <QDir>
 #include <QFileInfo>
@@ -16,6 +18,10 @@ TerminalSession::TerminalSession(QObject* parent)
         if (!title.isEmpty()) {
             setTitle(title);
         }
+    });
+    m_parser.setDefaultColorHandler([this](bool foreground) {
+        const TerminalPalette palette = terminalPaletteForScheme(m_colorScheme);
+        return foreground ? palette.foreground : palette.background;
     });
 
     connect(&m_process, &PtyProcess::outputReady, this, &TerminalSession::consumeOutput);
@@ -52,7 +58,22 @@ int TerminalSession::rows() const noexcept { return m_screen.rows(); }
 int TerminalSession::columns() const noexcept { return m_screen.columns(); }
 int TerminalSession::scrollbackLimit() const noexcept { return m_screen.maxScrollbackRows(); }
 QString TerminalSession::workingDirectory() const { return m_workingDirectory; }
+QString TerminalSession::profileName() const { return m_profileName; }
+QString TerminalSession::colorScheme() const { return m_colorScheme; }
 const TerminalScreen& TerminalSession::screen() const noexcept { return m_screen; }
+
+
+void TerminalSession::setProfile(const QString& profileName, const QString& colorScheme)
+{
+    const QString normalizedProfile = profileName.trimmed().isEmpty() ? QStringLiteral("Default") : profileName.trimmed();
+    const QString normalizedScheme = colorScheme.trimmed().isEmpty() ? QStringLiteral("Axiom Dark") : colorScheme.trimmed();
+    if (m_profileName == normalizedProfile && m_colorScheme == normalizedScheme) {
+        return;
+    }
+    m_profileName = normalizedProfile;
+    m_colorScheme = normalizedScheme;
+    emit profileChanged();
+}
 
 void TerminalSession::startDefaultShell()
 {
@@ -107,7 +128,11 @@ void TerminalSession::startShellInDirectory(const QString& shellPath, const QStr
         emit screenChanged();
     } else {
         m_process.resize(m_screen.rows(), m_screen.columns());
-        refreshWorkingDirectory();
+        // m_workingDirectory already contains the requested startup directory.
+        // Reading /proc/<pid>/cwd immediately after forkpty() races the child
+        // before it has completed chdir()/exec and can temporarily report the
+        // parent's old CWD. SessionManager's periodic refresh updates the CWD
+        // once the shell is fully running.
     }
 }
 

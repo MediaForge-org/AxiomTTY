@@ -20,6 +20,8 @@ class TerminalSession final : public QObject
     Q_PROPERTY(int rows READ rows NOTIFY terminalSizeChanged)
     Q_PROPERTY(int columns READ columns NOTIFY terminalSizeChanged)
     Q_PROPERTY(QString workingDirectory READ workingDirectory NOTIFY workingDirectoryChanged)
+    Q_PROPERTY(QString profileName READ profileName NOTIFY profileChanged)
+    Q_PROPERTY(QString colorScheme READ colorScheme NOTIFY profileChanged)
 
 public:
     explicit TerminalSession(QObject* parent = nullptr);
@@ -35,6 +37,8 @@ public:
     [[nodiscard]] int columns() const noexcept;
     [[nodiscard]] int scrollbackLimit() const noexcept;
     [[nodiscard]] QString workingDirectory() const;
+    [[nodiscard]] QString profileName() const;
+    [[nodiscard]] QString colorScheme() const;
     [[nodiscard]] const TerminalScreen& screen() const noexcept;
 
 public slots:
@@ -53,6 +57,7 @@ public slots:
     void setScrollbackLimit(int lines);
     void refreshWorkingDirectory();
     void setInitialWorkingDirectory(const QString& workingDirectory);
+    void setProfile(const QString& profileName, const QString& colorScheme);
 
 signals:
     void screenChanged();
@@ -63,6 +68,7 @@ signals:
     void terminalModesChanged();
     void terminalSizeChanged();
     void workingDirectoryChanged();
+    void profileChanged();
 
 private:
     void resizeTerminalImpl(int rows, int columns, TerminalResizeMode mode);
@@ -76,4 +82,6 @@ private:
     QString m_title{QStringLiteral("Shell")};
     QString m_shell;
     QString m_workingDirectory;
+    QString m_profileName{QStringLiteral("Default")};
+    QString m_colorScheme{QStringLiteral("Axiom Dark")};
 };

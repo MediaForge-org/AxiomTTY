@@ -11,6 +11,7 @@ Item {
 
     implicitWidth: 30
     implicitHeight: 30
+    opacity: enabled ? 1.0 : 0.35
 
     Rectangle {
         anchors.centerIn: parent
@@ -55,6 +56,7 @@ Item {
     MouseArea {
         id: mouse
         anchors.fill: parent
+        enabled: root.enabled
         hoverEnabled: true
         onClicked: root.clicked()
     }

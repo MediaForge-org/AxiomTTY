@@ -20,6 +20,8 @@ class SessionManager final : public QAbstractListModel
     Q_PROPERTY(QObject* activeRoot READ activeRoot NOTIFY activeRootChanged)
     Q_PROPERTY(int activePaneCount READ activePaneCount NOTIFY activePaneCountChanged)
     Q_PROPERTY(int activePaneIndex READ activePaneIndex NOTIFY activePaneIndexChanged)
+    Q_PROPERTY(bool canSplitActivePane READ canSplitActivePane NOTIFY activePaneCountChanged)
+    Q_PROPERTY(int maxPanesPerTab READ maxPanesPerTab CONSTANT)
     Q_PROPERTY(int currentIndex READ currentIndex WRITE setCurrentIndex NOTIFY currentIndexChanged)
     Q_PROPERTY(int count READ count NOTIFY countChanged)
 
@@ -32,6 +34,7 @@ public:
         WorkingDirectoryRole,
         ShellRole,
         PaneCountRole,
+        ProfileRole,
     };
     Q_ENUM(Role)
 
@@ -45,10 +48,13 @@ public:
     [[nodiscard]] QObject* activeRoot() const;
     [[nodiscard]] int activePaneCount() const noexcept;
     [[nodiscard]] int activePaneIndex() const noexcept;
+    [[nodiscard]] bool canSplitActivePane() const noexcept;
+    [[nodiscard]] int maxPanesPerTab() const noexcept;
     [[nodiscard]] int currentIndex() const noexcept;
     [[nodiscard]] int count() const noexcept;
 
     Q_INVOKABLE void newTab();
+    Q_INVOKABLE void newTabWithProfile(const QString& profileName);
     Q_INVOKABLE void duplicateTab(int index);
     Q_INVOKABLE void renameTab(int index, const QString& title);
     Q_INVOKABLE void resetTabTitle(int index);
@@ -90,6 +96,8 @@ signals:
     void applicationCloseApproved();
 
 private:
+    static constexpr int MaxPanesPerTab = 8;
+
     enum class PendingCloseKind {
         None,
         Tab,
@@ -102,22 +110,26 @@ private:
         QPointer<TerminalSession> activeSession;
         QVector<TerminalSession*> sessions;
         QString customTitle;
+        QString profileName{QStringLiteral("Default")};
     };
 
-    TerminalSession* createSession(const QString& workingDirectory);
-    void insertTab(int index, const QString& shellPath, const QString& workingDirectory, const QString& customTitle = {});
+    TerminalSession* createSession(const QString& workingDirectory, const QString& profileName);
+    void insertTab(int index, const QString& shellPath, const QString& workingDirectory, const QString& customTitle = {}, const QString& profileName = {});
     [[nodiscard]] TabState* currentTab();
     [[nodiscard]] const TabState* currentTab() const;
     [[nodiscard]] TerminalSession* sessionAtTab(int index) const;
     [[nodiscard]] QString displayTitle(const TabState& tab) const;
-    [[nodiscard]] QString inheritedWorkingDirectory() const;
-    [[nodiscard]] QString configuredStartDirectory() const;
-    [[nodiscard]] QString configuredDefaultShell() const;
+    [[nodiscard]] QString configuredStartDirectory(const QString& profileName = {}) const;
+    [[nodiscard]] QString configuredDefaultShell(const QString& profileName = {}) const;
+    [[nodiscard]] QString configuredColorScheme(const QString& profileName = {}) const;
+    [[nodiscard]] QString configuredProfileName(const QString& profileName = {}) const;
     [[nodiscard]] int tabIndexForSession(const TerminalSession* session) const;
     [[nodiscard]] bool anyRunning(const TabState& tab) const;
     void connectSession(TerminalSession* session);
     void notifySessionChanged(TerminalSession* session, const QVector<int>& roles);
     void refreshWorkingDirectories();
+    void refreshSessionProfiles();
+    void applyProfileColorScheme(const QString& profileName, const QString& colorScheme);
     void splitActive(Qt::Orientation orientation, bool duplicateShell = false);
     void focusPane(SplitNode::PaneDirection direction);
     [[nodiscard]] bool tabHasBusyProcesses(int index) const;

@@ -1,5 +1,6 @@
 #pragma once
 
+#include <QColor>
 #include <QPoint>
 #include <QPointF>
 #include <QPointer>
@@ -25,6 +26,8 @@ class TerminalView : public QQuickPaintedItem
     Q_PROPERTY(QObject* session READ session WRITE setSession NOTIFY sessionChanged)
     Q_PROPERTY(QString fontFamily READ fontFamily WRITE setFontFamily NOTIFY fontFamilyChanged)
     Q_PROPERTY(qreal fontPixelSize READ fontPixelSize WRITE setFontPixelSize NOTIFY fontPixelSizeChanged)
+    Q_PROPERTY(QString colorScheme READ colorScheme WRITE setColorScheme NOTIFY colorSchemeChanged)
+    Q_PROPERTY(QColor terminalBackground READ terminalBackground NOTIFY colorSchemeChanged)
     Q_PROPERTY(qreal cellWidth READ cellWidth NOTIFY metricsChanged)
     Q_PROPERTY(qreal cellHeight READ cellHeight NOTIFY metricsChanged)
     Q_PROPERTY(bool hasSelection READ hasSelection NOTIFY selectionChanged)
@@ -47,6 +50,9 @@ public:
 
     [[nodiscard]] qreal fontPixelSize() const noexcept;
     void setFontPixelSize(qreal size);
+    [[nodiscard]] QString colorScheme() const;
+    void setColorScheme(const QString& colorScheme);
+    [[nodiscard]] QColor terminalBackground() const;
 
     [[nodiscard]] qreal cellWidth() const noexcept;
     [[nodiscard]] qreal cellHeight() const noexcept;
@@ -77,6 +83,7 @@ signals:
     void sessionChanged();
     void fontFamilyChanged();
     void fontPixelSizeChanged();
+    void colorSchemeChanged();
     void metricsChanged();
     void selectionChanged();
     void scrollbackChanged();
@@ -121,6 +128,7 @@ private:
     QPointer<TerminalSession> m_session;
     QString m_fontFamily;
     qreal m_fontPixelSize{14.0};
+    QString m_colorScheme{QStringLiteral("Axiom Dark")};
     qreal m_cellWidth{9.0};
     qreal m_cellHeight{19.0};
     qreal m_ascent{14.0};

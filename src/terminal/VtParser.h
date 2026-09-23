@@ -18,6 +18,7 @@ public:
 
     void setResponseHandler(std::function<void(const QByteArray&)> handler);
     void setTitleHandler(std::function<void(const QString&)> handler);
+    void setDefaultColorHandler(std::function<QColor(bool)> handler);
 
 private:
     enum class State {
@@ -51,6 +52,7 @@ private:
     QStringDecoder m_utf8Decoder{QStringDecoder::Utf8};
     std::function<void(const QByteArray&)> m_responseHandler;
     std::function<void(const QString&)> m_titleHandler;
+    std::function<QColor(bool)> m_defaultColorHandler;
     bool m_g0SpecialGraphics{false};
     bool m_g1SpecialGraphics{false};
     bool m_useG1{false};

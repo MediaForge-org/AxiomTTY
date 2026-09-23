@@ -65,7 +65,7 @@ AxiomTTY can serve as a normal interactive Linux terminal for everyday use.
 Completed through M2.6 lifecycle finalization:
 - many simultaneous PTYs across tabs
 - independent terminal state and scrollback per session
-- inherited Linux working directory for new tabs/panes
+- profile-defined start directory for new tabs; CWD preservation for duplicate/split operations
 - binary horizontal/vertical split tree with arbitrary nesting
 - draggable split handles with independent PTY resizing
 - active-pane tracking and keyboard pane navigation
@@ -93,13 +93,20 @@ M3.1 Settings Foundation completed:
 - live terminal font family and font size with viewport-stable font-metric resizing
 - fixed internal scrollback retention for now; no normal user-facing limit control
 - default shell and start directory for new tabs
-- optional active-CWD inheritance for new tabs
+- deterministic profile start directory for fresh tabs
 - optional close confirmation for running child processes
 - settings persistence smoke coverage
 
+M3.2 Themes & Profiles completed:
+- four terminal color schemes with live base-palette remapping
+- persistent Default / Development / Server profiles
+- custom profile creation/removal
+- per-profile shell, start directory and color scheme
+- default profile selection for normal new tabs
+- explicit profile selection from the new-tab menu
+- split/profile inheritance and live theme propagation to existing panes
+
 Next M3 work:
-- themes and terminal color schemes
-- reusable profiles
 - search UX polish (regex/whole-word/filter options)
 - link/path detection
 - command palette
@@ -174,7 +181,7 @@ The system shell remains available even after the own shell becomes usable.
 
 - Added a `SessionManager` model owning independent `TerminalSession` instances
 - Each tab has its own PTY, terminal grid, process lifecycle and scrollback history
-- New tabs inherit the active shell's current directory through `/proc/<pid>/cwd`
+- Fresh tabs use their profile start directory; duplication/splits can preserve `/proc/<pid>/cwd`
 - Added compact multi-tab header UI with close controls and horizontal overflow
 - Added standard tab shortcuts while preserving normal terminal `Ctrl+W`
 - Added session count and active working directory to the status bar
@@ -237,6 +244,42 @@ tab lifecycle operations such as rename, reorder and duplicate.
 - live terminal font family/size with viewport-stable resizing
 - fixed internal scrollback retention for now; no normal user-facing limit control
 - configurable new-tab shell and start directory
-- toggle for active-CWD inheritance
+- explicit distinction between fresh-tab start directory and CWD-preserving duplicate/split actions
 - toggle for running-process close confirmation
 - Settings dialog via header button or `Ctrl+,`
+
+
+## M3.2 — Themes & Profiles
+
+- Added persistent profile definitions backed by `AppSettings`.
+- Added built-in Default, Development and Server profiles plus custom profiles.
+- Profiles own shell, start directory and terminal color scheme.
+- Added Axiom Dark, Midnight, Graphite and Forest terminal schemes.
+- Existing panes recolor live when their profile theme changes.
+- New tabs can use the active default profile or an explicit profile from the `+` context menu.
+- Split panes retain their tab profile.
+
+
+## M3.2.1 — Profiles & Settings Reliability
+
+- Profile shell/start-directory/theme edits are staged and applied as one batch instead of emitting broad profile refreshes for each field.
+- Added a dedicated color-scheme signal so only sessions using the edited profile repaint.
+- Made Midnight, Graphite and Forest visually distinct from Axiom Dark while preserving explicit True Color output.
+- Fresh tabs now always respect the target profile's configured start directory. Duplicate Tab and split/duplicate pane actions preserve the active CWD explicitly.
+- Font-size changes are lightly debounced to avoid repeated PTY/grid resize work while the user is adjusting the control.
+- TerminalPane explicitly resynchronizes its renderer when the session profile changes.
+
+
+## M3.2.3 — Deterministic New-Tab Semantics
+
+- `+`, `Ctrl+Shift+T`, and profile-specific new-tab actions always start in the target profile's configured start directory.
+- Removed the misleading new-tab CWD-inheritance toggle from Settings.
+- Duplicate Tab and split/duplicate pane actions continue to preserve the active CWD with a fresh PTY.
+- Added regression coverage so same-profile fresh tabs cannot silently inherit the current pane directory.
+
+## M3.2.4 — Non-Blocking Settings Persistence
+
+- keep profile/settings mutations in memory during UI interaction
+- batch QSettings writes and sync at controlled shutdown
+- avoid synchronous Settings-form rebuilds inside Apply button events
+- preserve immediate in-memory effect for new tabs and theme changes

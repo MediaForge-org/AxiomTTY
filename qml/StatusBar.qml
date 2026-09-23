@@ -66,6 +66,22 @@ Rectangle {
         Item { Layout.fillWidth: true }
 
         Text {
+            visible: root.session && root.session.profileName.length > 0
+            text: root.session ? root.session.profileName.toUpperCase() : ""
+            color: Theme.textFaint
+            font.family: "sans-serif"
+            font.pixelSize: 9
+            font.letterSpacing: 0.35
+        }
+
+        Rectangle {
+            visible: root.session && root.session.profileName.length > 0
+            Layout.preferredWidth: 1
+            Layout.preferredHeight: 10
+            color: Theme.border
+        }
+
+        Text {
             visible: root.paneCount > 1
             text: "PANE " + root.activePaneIndex + "/" + root.paneCount
             color: Theme.accent

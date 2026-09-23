@@ -19,6 +19,11 @@ SessionManager::SessionManager(AppSettings* settings, QObject* parent)
     connect(&m_cwdRefreshTimer, &QTimer::timeout, this, &SessionManager::refreshWorkingDirectories);
     m_cwdRefreshTimer.start();
 
+    if (m_settings != nullptr) {
+        connect(m_settings, &AppSettings::profilesChanged, this, &SessionManager::refreshSessionProfiles);
+        connect(m_settings, &AppSettings::profileColorSchemeChanged,
+                this, &SessionManager::applyProfileColorScheme);
+    }
 
     newTab();
 }
@@ -55,6 +60,8 @@ QVariant SessionManager::data(const QModelIndex& index, int role) const
         return session != nullptr ? session->shell() : QString{};
     case PaneCountRole:
         return static_cast<int>(tab.sessions.size());
+    case ProfileRole:
+        return tab.profileName;
     default:
         return {};
     }
@@ -70,6 +77,7 @@ QHash<int, QByteArray> SessionManager::roleNames() const
         {WorkingDirectoryRole, "workingDirectory"},
         {ShellRole, "shellPath"},
         {PaneCountRole, "paneCount"},
+        {ProfileRole, "profileName"},
     };
 }
 
@@ -99,8 +107,18 @@ int SessionManager::activePaneIndex() const noexcept
     }
 
     const QVector<TerminalSession*> leaves = tab->root->leafSessions();
-    const int index = leaves.indexOf(tab->activeSession);
-    return index >= 0 ? index + 1 : 0;
+    const qsizetype index = leaves.indexOf(tab->activeSession);
+    return index >= 0 ? static_cast<int>(index) + 1 : 0;
+}
+
+bool SessionManager::canSplitActivePane() const noexcept
+{
+    return activePaneCount() > 0 && activePaneCount() < MaxPanesPerTab;
+}
+
+int SessionManager::maxPanesPerTab() const noexcept
+{
+    return MaxPanesPerTab;
 }
 
 int SessionManager::currentIndex() const noexcept
@@ -115,10 +133,16 @@ int SessionManager::count() const noexcept
 
 void SessionManager::newTab()
 {
-    const QString directory = (m_settings != nullptr && !m_settings->inheritWorkingDirectory())
-        ? configuredStartDirectory()
-        : inheritedWorkingDirectory();
-    insertTab(rowCount(), configuredDefaultShell(), directory);
+    newTabWithProfile(configuredProfileName());
+}
+
+void SessionManager::newTabWithProfile(const QString& profileName)
+{
+    const QString resolvedProfile = configuredProfileName(profileName);
+    // Fresh tabs are profile-defined sessions. Preserving the current work
+    // context is explicit via Duplicate Tab or split/duplicate pane actions.
+    const QString directory = configuredStartDirectory(resolvedProfile);
+    insertTab(rowCount(), configuredDefaultShell(resolvedProfile), directory, {}, resolvedProfile);
 }
 
 void SessionManager::duplicateTab(int index)
@@ -140,7 +164,7 @@ void SessionManager::duplicateTab(int index)
     const QString shellPath = source->shell();
     const QString customTitle = sourceTab.customTitle;
 
-    insertTab(index + 1, shellPath, workingDirectory, customTitle);
+    insertTab(index + 1, shellPath, workingDirectory, customTitle, sourceTab.profileName);
 }
 
 void SessionManager::renameTab(int index, const QString& title)
@@ -340,7 +364,7 @@ void SessionManager::closeActivePane()
     tab->activeSession = fallback;
     closingSession->deleteLater();
 
-    emitCurrentTabStateChanged({SessionRole, RootRole, TitleRole, RunningRole, WorkingDirectoryRole, ShellRole, PaneCountRole});
+    emitCurrentTabStateChanged({SessionRole, RootRole, TitleRole, RunningRole, WorkingDirectoryRole, ShellRole, PaneCountRole, ProfileRole});
     emit activeSessionChanged();
     emit activeRootChanged();
     emit activePaneCountChanged();
@@ -365,8 +389,8 @@ void SessionManager::nextPane()
     }
 
     const QVector<TerminalSession*> leaves = tab->root->leafSessions();
-    const int current = leaves.indexOf(tab->activeSession);
-    const int next = current < 0 ? 0 : (current + 1) % leaves.size();
+    const qsizetype current = leaves.indexOf(tab->activeSession);
+    const qsizetype next = current < 0 ? 0 : (current + 1) % leaves.size();
     setActivePane(*tab, leaves.at(next));
 }
 
@@ -378,8 +402,8 @@ void SessionManager::previousPane()
     }
 
     const QVector<TerminalSession*> leaves = tab->root->leafSessions();
-    const int current = leaves.indexOf(tab->activeSession);
-    const int previous = current < 0 ? 0 : (current - 1 + leaves.size()) % leaves.size();
+    const qsizetype current = leaves.indexOf(tab->activeSession);
+    const qsizetype previous = current < 0 ? 0 : (current - 1 + leaves.size()) % leaves.size();
     setActivePane(*tab, leaves.at(previous));
 }
 
@@ -463,20 +487,23 @@ void SessionManager::setCurrentIndex(int index)
     emit activePaneIndexChanged();
 }
 
-TerminalSession* SessionManager::createSession(const QString& workingDirectory)
+TerminalSession* SessionManager::createSession(const QString& workingDirectory, const QString& profileName)
 {
     auto* session = new TerminalSession(this);
+    const QString resolvedProfile = configuredProfileName(profileName);
     session->setInitialWorkingDirectory(workingDirectory);
+    session->setProfile(resolvedProfile, configuredColorScheme(resolvedProfile));
     connectSession(session);
     return session;
 }
 
-void SessionManager::insertTab(int index, const QString& shellPath, const QString& workingDirectory, const QString& customTitle)
+void SessionManager::insertTab(int index, const QString& shellPath, const QString& workingDirectory, const QString& customTitle, const QString& profileName)
 {
     const int insertIndex = std::clamp(index, 0, rowCount());
     const QString directory = workingDirectory.isEmpty() ? QDir::homePath() : workingDirectory;
 
-    TerminalSession* session = createSession(directory);
+    const QString resolvedProfile = configuredProfileName(profileName);
+    TerminalSession* session = createSession(directory, resolvedProfile);
     auto* root = new SplitNode(session, this);
 
     beginInsertRows(QModelIndex(), insertIndex, insertIndex);
@@ -485,6 +512,7 @@ void SessionManager::insertTab(int index, const QString& shellPath, const QStrin
     tab.activeSession = session;
     tab.sessions.push_back(session);
     tab.customTitle = customTitle.trimmed();
+    tab.profileName = resolvedProfile;
     m_tabs.insert(insertIndex, tab);
     endInsertRows();
     emit countChanged();
@@ -557,21 +585,20 @@ QString SessionManager::displayTitle(const TabState& tab) const
     return QStringLiteral("Shell");
 }
 
-QString SessionManager::inheritedWorkingDirectory() const
+QString SessionManager::configuredProfileName(const QString& profileName) const
 {
-    TerminalSession* current = sessionAtTab(m_currentIndex);
-    if (current == nullptr) {
-        return configuredStartDirectory();
+    if (m_settings == nullptr) {
+        return QStringLiteral("Default");
     }
-
-    current->refreshWorkingDirectory();
-    const QString directory = current->workingDirectory();
-    return directory.isEmpty() ? configuredStartDirectory() : directory;
+    const QString requested = profileName.trimmed().isEmpty() ? m_settings->activeProfile() : profileName.trimmed();
+    return m_settings->profileNames().contains(requested) ? requested : QStringLiteral("Default");
 }
 
-QString SessionManager::configuredStartDirectory() const
+QString SessionManager::configuredStartDirectory(const QString& profileName) const
 {
-    QString directory = m_settings != nullptr ? m_settings->startDirectory().trimmed() : QDir::homePath();
+    QString directory = m_settings != nullptr
+        ? m_settings->profileStartDirectory(configuredProfileName(profileName)).trimmed()
+        : QDir::homePath();
     if (directory.isEmpty() || directory == QStringLiteral("~")) {
         return QDir::homePath();
     }
@@ -581,17 +608,24 @@ QString SessionManager::configuredStartDirectory() const
     return QFileInfo(directory).isDir() ? QDir(directory).absolutePath() : QDir::homePath();
 }
 
-QString SessionManager::configuredDefaultShell() const
+QString SessionManager::configuredDefaultShell(const QString& profileName) const
 {
     if (m_settings == nullptr) {
         return {};
     }
-    const QString shell = m_settings->defaultShell().trimmed();
+    const QString shell = m_settings->profileShell(configuredProfileName(profileName)).trimmed();
     if (shell.isEmpty()) {
         return {};
     }
     const QFileInfo info(shell);
     return info.isFile() && info.isExecutable() ? info.absoluteFilePath() : QString{};
+}
+
+QString SessionManager::configuredColorScheme(const QString& profileName) const
+{
+    return m_settings != nullptr
+        ? m_settings->profileColorScheme(configuredProfileName(profileName))
+        : QStringLiteral("Axiom Dark");
 }
 
 int SessionManager::tabIndexForSession(const TerminalSession* session) const
@@ -656,10 +690,60 @@ void SessionManager::refreshWorkingDirectories()
     }
 }
 
+void SessionManager::refreshSessionProfiles()
+{
+    for (TabState& tab : m_tabs) {
+        const QString resolvedProfile = configuredProfileName(tab.profileName);
+        tab.profileName = resolvedProfile;
+        const QString scheme = configuredColorScheme(resolvedProfile);
+        for (TerminalSession* session : tab.sessions) {
+            if (session != nullptr) {
+                session->setProfile(resolvedProfile, scheme);
+            }
+        }
+    }
+    if (rowCount() > 0) {
+        emit dataChanged(createIndex(0, 0), createIndex(rowCount() - 1, 0), {ProfileRole});
+    }
+    emit activeSessionChanged();
+}
+
+void SessionManager::applyProfileColorScheme(const QString& profileName, const QString& colorScheme)
+{
+    bool activeChanged = false;
+    for (int tabIndex = 0; tabIndex < rowCount(); ++tabIndex) {
+        TabState& tab = m_tabs[tabIndex];
+        if (tab.profileName != profileName) {
+            continue;
+        }
+        for (TerminalSession* session : tab.sessions) {
+            if (session != nullptr) {
+                session->setProfile(profileName, colorScheme);
+            }
+        }
+        const QModelIndex modelIndex = createIndex(tabIndex, 0);
+        emit dataChanged(modelIndex, modelIndex, {ProfileRole});
+        if (tabIndex == m_currentIndex) {
+            activeChanged = true;
+        }
+    }
+    if (activeChanged) {
+        emit activeSessionChanged();
+    }
+}
+
 void SessionManager::splitActive(Qt::Orientation orientation, bool duplicateShell)
 {
     TabState* tab = currentTab();
     if (tab == nullptr || tab->root == nullptr || tab->activeSession == nullptr) {
+        return;
+    }
+
+    // A huge recursive split tree quickly becomes unusable and can create
+    // panes smaller than real TUI programs can handle. Keep a deliberate,
+    // predictable per-tab ceiling. The UI disables split controls at the same
+    // limit, while this guard also covers keyboard shortcuts.
+    if (tab->sessions.size() >= MaxPanesPerTab) {
         return;
     }
 
@@ -669,7 +753,7 @@ void SessionManager::splitActive(Qt::Orientation orientation, bool duplicateShel
         ? QDir::homePath()
         : current->workingDirectory();
 
-    TerminalSession* session = createSession(workingDirectory);
+    TerminalSession* session = createSession(workingDirectory, tab->profileName);
     if (!tab->root->splitSession(current, orientation, session)) {
         session->deleteLater();
         return;
@@ -678,7 +762,7 @@ void SessionManager::splitActive(Qt::Orientation orientation, bool duplicateShel
     tab->sessions.push_back(session);
     tab->activeSession = session;
 
-    emitCurrentTabStateChanged({SessionRole, RootRole, TitleRole, RunningRole, WorkingDirectoryRole, ShellRole, PaneCountRole});
+    emitCurrentTabStateChanged({SessionRole, RootRole, TitleRole, RunningRole, WorkingDirectoryRole, ShellRole, PaneCountRole, ProfileRole});
     emit activeSessionChanged();
     emit activeRootChanged();
     emit activePaneCountChanged();
@@ -687,7 +771,7 @@ void SessionManager::splitActive(Qt::Orientation orientation, bool duplicateShel
     if (duplicateShell && !current->shell().isEmpty()) {
         session->startShellInDirectory(current->shell(), workingDirectory);
     } else {
-        const QString shell = configuredDefaultShell();
+        const QString shell = configuredDefaultShell(tab->profileName);
         if (!shell.isEmpty()) {
             session->startShellInDirectory(shell, workingDirectory);
         } else {

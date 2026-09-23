@@ -112,6 +112,11 @@ void VtParser::setTitleHandler(std::function<void(const QString&)> handler)
     m_titleHandler = std::move(handler);
 }
 
+void VtParser::setDefaultColorHandler(std::function<QColor(bool)> handler)
+{
+    m_defaultColorHandler = std::move(handler);
+}
+
 void VtParser::flushText()
 {
     if (m_textBytes.isEmpty()) {
@@ -427,9 +432,10 @@ void VtParser::finishOsc()
     // instead of trusting terminfo, so answering them avoids stray query text
     // and lets applications derive a sensible light/dark palette.
     if ((command == 10 || command == 11) && payload == QByteArray("?")) {
-        const QColor color = command == 10
-            ? TerminalScreen::defaultForeground()
-            : TerminalScreen::defaultBackground();
+        const bool foreground = command == 10;
+        const QColor color = m_defaultColorHandler
+            ? m_defaultColorHandler(foreground)
+            : (foreground ? TerminalScreen::defaultForeground() : TerminalScreen::defaultBackground());
         const auto component = [](int value) {
             return QStringLiteral("%1").arg(value * 257, 4, 16, QLatin1Char('0'));
         };

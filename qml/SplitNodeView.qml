@@ -4,12 +4,30 @@ import AxiomTTY
 
 Item {
     id: root
+    clip: true
 
     // These are intentionally normal properties instead of `required` ones.
     // Child SplitNodeView instances are created dynamically by Loader below,
     // which avoids Qt's static recursive-type rejection.
     property var node: null
     property var sessionManager: null
+
+
+    // SplitNode objects are mutated in-place when a pane is removed and its
+    // sibling is promoted. Recreate this visual subtree on every structural
+    // mutation so no Loader/painted-item from the removed pane can survive
+    // into the expanded sibling area.
+    Connections {
+        target: root.node
+        ignoreUnknownSignals: true
+        function onStructureChanged() {
+            contentLoader.active = false
+            Qt.callLater(function() {
+                if (root.node)
+                    contentLoader.active = true
+            })
+        }
+    }
 
     Loader {
         id: contentLoader

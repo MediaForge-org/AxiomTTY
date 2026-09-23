@@ -26,7 +26,7 @@ The GUI does not own process semantics. The terminal emulator does not know
 about future workspaces or package-manager UI. The future own shell remains a
 separate component and can later be built as a standalone executable.
 
-## Current milestone — M3.1 Settings Foundation
+## Current milestone — M3.2 Themes & Profiles
 
 Implemented:
 
@@ -60,6 +60,8 @@ Implemented:
 - child-process-aware pane/tab/application close requests
 - fresh-PTY pane duplication with shell/CWD inheritance
 - persistent `AppSettings` service backed by an XDG config INI file
+- persistent profile registry with shell/start-directory/color-scheme data
+- per-session profile identity and terminal palette selection
 - live scrollback-capacity propagation to existing sessions
 - settings-driven new-tab shell/start-directory behavior
 - natural final-pane/final-tab application close semantics
@@ -81,11 +83,11 @@ layout supports arbitrary nested combinations without a separate layout subsyste
 
 When a pane closes, its sibling is promoted into the parent node. This collapses only
 the affected branch and preserves the rest of the tree. The tab tracks one active leaf
-for keyboard focus, status information and working-directory inheritance.
+for keyboard focus, status information and explicit CWD-preserving duplicate/split actions.
 
-New tabs and new split panes query `/proc/<shell-pid>/cwd` and start in the active
-shell's current directory. This keeps Linux shell semantics while avoiding any attempt
-to infer a directory from prompt text.
+Fresh tabs resolve their working directory from the selected profile. Duplicate Tab and
+split/duplicate pane operations query `/proc/<shell-pid>/cwd` when preserving the active
+work context. This keeps profile launches deterministic while avoiding prompt-text heuristics.
 
 ## Still incomplete inside M1
 
@@ -119,3 +121,21 @@ it does not clone process memory or terminal scrollback.
 Font settings bind directly to each `TerminalView`, so existing panes update live. Scrollback capacity is propagated by `SessionManager` into every existing `TerminalSession`/`TerminalScreen`. Shell and start-directory settings intentionally affect newly created tabs rather than replacing already-running PTYs.
 
 The final-pane lifecycle is also owned by `SessionManager`: removing the only pane removes the tab, and removing the final tab emits application-close approval. The manager never creates an implicit replacement shell as a side effect of closing.
+
+
+## Profile and color-scheme ownership
+
+`AppSettings` owns the persistent profile registry. `SessionManager` chooses a profile when a tab is created and stamps that identity onto every `TerminalSession` in the tab. New split panes inherit the tab profile; they do not silently switch to the global default profile.
+
+A profile controls startup policy (shell and directory) and presentation policy (terminal color scheme). Changing a profile's shell or directory affects future PTYs. Changing its color scheme is safe to propagate to existing sessions because it only changes rendering.
+
+`TerminalView` owns color-scheme rendering. The terminal screen model continues to store canonical default/base ANSI colors and arbitrary 256/True Color values. At paint time the renderer remaps the canonical default and 16-color ANSI palette through the selected scheme. Arbitrary True Color values remain untouched. This keeps VT state independent from product theming and allows existing scrollback to recolor immediately without rewriting terminal history.
+
+
+## M3.2.1 settings event flow
+
+The Settings dialog no longer treats every profile field edit as a global profile mutation. Shell, start-directory and color-scheme values are staged in QML and committed through one `setProfileSettings()` call. `AppSettings` persists that profile once, while color changes emit a narrow `profileColorSchemeChanged(profile, scheme)` signal. `SessionManager` updates only tabs that actually use that profile. This prevents the old feedback loop where profile edits triggered a complete Settings resync plus a repaint of unrelated sessions.
+
+Font-size changes remain live but are debounced briefly in the UI so rapid SpinBox interaction produces one terminal-grid resize after the user pauses rather than a resize for every intermediate event.
+
+Fresh tabs are deliberately profile-defined: `+`, `Ctrl+Shift+T`, and explicit profile selection always use the target profile's configured start directory. CWD preservation is explicit: Duplicate Tab and split/duplicate pane actions preserve the active session's `/proc/<pid>/cwd`.

@@ -35,6 +35,7 @@ ApplicationWindow {
             Layout.fillWidth: true
             sessionManager: sessions
             appWindow: root
+            settingsObject: appSettings
             onSettingsRequested: settingsDialog.open()
         }
 
@@ -155,7 +156,20 @@ ApplicationWindow {
 
     Shortcut {
         sequence: "Ctrl+,"
-        onActivated: settingsDialog.open()
+        context: Qt.ApplicationShortcut
+        onActivated: {
+            if (settingsDialog.visible)
+                settingsDialog.close()
+            else
+                settingsDialog.open()
+        }
+    }
+
+    Shortcut {
+        sequence: "Escape"
+        context: Qt.ApplicationShortcut
+        enabled: settingsDialog.visible
+        onActivated: settingsDialog.close()
     }
 
     Shortcut {

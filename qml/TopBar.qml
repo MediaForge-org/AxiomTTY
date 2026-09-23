@@ -9,6 +9,7 @@ Rectangle {
 
     required property var sessionManager
     required property var appWindow
+    required property var settingsObject
     signal settingsRequested()
 
     implicitHeight: Theme.headerHeight
@@ -87,7 +88,30 @@ Rectangle {
                 id: addMouse
                 anchors.fill: parent
                 hoverEnabled: true
-                onClicked: root.sessionManager.newTab()
+                acceptedButtons: Qt.LeftButton | Qt.RightButton
+                onClicked: function(mouse) {
+                    if (mouse.button === Qt.RightButton)
+                        profileMenu.popup()
+                    else
+                        root.sessionManager.newTab()
+                }
+            }
+
+            ToolTip.visible: addMouse.containsMouse
+            ToolTip.text: "New tab · Ctrl+Shift+T  ·  Right-click for profile"
+
+            Menu {
+                id: profileMenu
+
+                Instantiator {
+                    model: root.settingsObject.profileNames
+                    delegate: MenuItem {
+                        text: modelData
+                        onTriggered: root.sessionManager.newTabWithProfile(modelData)
+                    }
+                    onObjectAdded: function(index, object) { profileMenu.insertItem(index, object) }
+                    onObjectRemoved: function(index, object) { profileMenu.removeItem(object) }
+                }
             }
         }
 
@@ -97,13 +121,19 @@ Rectangle {
 
             SplitControlButton {
                 kind: "right"
-                toolTipText: "Split right  ·  Ctrl+Shift+D"
+                enabled: root.sessionManager.canSplitActivePane
+                toolTipText: enabled
+                    ? "Split right  ·  Ctrl+Shift+D"
+                    : "Pane limit reached (" + root.sessionManager.maxPanesPerTab + ")"
                 onClicked: root.sessionManager.splitRight()
             }
 
             SplitControlButton {
                 kind: "down"
-                toolTipText: "Split down  ·  Ctrl+Shift+E"
+                enabled: root.sessionManager.canSplitActivePane
+                toolTipText: enabled
+                    ? "Split down  ·  Ctrl+Shift+E"
+                    : "Pane limit reached (" + root.sessionManager.maxPanesPerTab + ")"
                 onClicked: root.sessionManager.splitDown()
             }
         }

@@ -11,7 +11,7 @@ set(CMAKE_CXX_EXTENSIONS OFF)
 set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 
 set(AXIOMTTY_DEVELOPMENT_STAGE "pre-alpha")
-set(AXIOMTTY_MILESTONE "M3-settings-r1.3")
+set(AXIOMTTY_MILESTONE "M3-settings-io-r2.4")
 
 option(AXIOMTTY_WARNINGS_AS_ERRORS "Treat compiler warnings as errors" OFF)
 option(AXIOMTTY_BUILD_TESTS "Build terminal core smoke tests" ON)
@@ -24,6 +24,8 @@ set(AXIOMTTY_CORE_SOURCES
     src/terminal/TerminalScreen.h
     src/terminal/TerminalSearch.cpp
     src/terminal/TerminalSearch.h
+    src/terminal/TerminalPalette.cpp
+    src/terminal/TerminalPalette.h
     src/terminal/VtParser.cpp
     src/terminal/VtParser.h
 )

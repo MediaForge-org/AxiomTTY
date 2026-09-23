@@ -1,5 +1,6 @@
 #include "TerminalView.h"
 
+#include "TerminalPalette.h"
 #include "TerminalScreen.h"
 #include "TerminalSession.h"
 
@@ -16,9 +17,11 @@
 #include <QWheelEvent>
 
 #include <algorithm>
+#include <array>
 #include <cmath>
 #include <iterator>
 #include <utility>
+
 
 TerminalView::TerminalView(QQuickItem* parent)
     : QQuickPaintedItem(parent)
@@ -100,6 +103,24 @@ void TerminalView::setFontFamily(const QString& family)
 }
 
 qreal TerminalView::fontPixelSize() const noexcept { return m_fontPixelSize; }
+
+QString TerminalView::colorScheme() const { return m_colorScheme; }
+
+void TerminalView::setColorScheme(const QString& colorScheme)
+{
+    const QString normalized = colorScheme.trimmed().isEmpty() ? QStringLiteral("Axiom Dark") : colorScheme.trimmed();
+    if (m_colorScheme == normalized) {
+        return;
+    }
+    m_colorScheme = normalized;
+    emit colorSchemeChanged();
+    update();
+}
+
+QColor TerminalView::terminalBackground() const
+{
+    return terminalPaletteForScheme(m_colorScheme).background;
+}
 
 void TerminalView::setFontPixelSize(qreal size)
 {
@@ -269,7 +290,8 @@ void TerminalView::findPrevious()
 
 void TerminalView::paint(QPainter* painter)
 {
-    painter->fillRect(boundingRect(), TerminalScreen::defaultBackground());
+    const TerminalPalette palette = terminalPaletteForScheme(m_colorScheme);
+    painter->fillRect(boundingRect(), palette.background);
     if (!m_session) {
         return;
     }
@@ -280,12 +302,6 @@ void TerminalView::paint(QPainter* painter)
     baseFont.setStyleHint(QFont::Monospace);
 
     painter->setRenderHint(QPainter::TextAntialiasing, true);
-
-    const QColor selectionBackground(QStringLiteral("#2d4767"));
-    const QColor selectionForeground(QStringLiteral("#f4f7fb"));
-    const QColor searchBackground(QStringLiteral("#39424f"));
-    const QColor searchCurrentBackground(QStringLiteral("#756129"));
-    const QColor searchForeground(QStringLiteral("#f4f7fb"));
 
     const int historyStart = visibleHistoryStart();
     for (int rowIndex = 0; rowIndex < screen.rows(); ++rowIndex) {
@@ -302,29 +318,29 @@ void TerminalView::paint(QPainter* painter)
                 break;
             }
 
-            QColor foreground = cell.style.foreground;
-            QColor background = cell.style.background;
+            QColor foreground = translateTerminalPaletteColor(cell.style.foreground, palette);
+            QColor background = translateTerminalPaletteColor(cell.style.background, palette);
             if (cell.style.inverse) {
                 std::swap(foreground, background);
             }
             if (cell.style.faint) {
-                foreground.setAlphaF(foreground.alphaF() * 0.58);
+                foreground.setAlphaF(foreground.alphaF() * 0.58F);
             }
 
             const int searchHighlight = searchHighlightAt(historyStart + rowIndex, column);
             if (searchHighlight > 0) {
-                background = searchHighlight == 2 ? searchCurrentBackground : searchBackground;
-                foreground = searchForeground;
+                background = searchHighlight == 2 ? palette.searchCurrentBackground : palette.searchBackground;
+                foreground = palette.searchForeground;
             }
 
             const bool selected = isCellSelected(rowIndex, column);
             if (selected) {
-                background = selectionBackground;
-                foreground = selectionForeground;
+                background = palette.selectionBackground;
+                foreground = palette.selectionForeground;
             }
 
             const QRectF cellRect(left, top, m_cellWidth + 0.5, m_cellHeight + 0.5);
-            if (selected || background != TerminalScreen::defaultBackground()) {
+            if (selected || background != palette.background) {
                 painter->fillRect(cellRect, background);
             }
 
@@ -349,7 +365,7 @@ void TerminalView::paint(QPainter* painter)
     if (showCursor) {
         const qreal left = static_cast<qreal>(screen.cursorColumn()) * m_cellWidth;
         const qreal top = static_cast<qreal>(screen.cursorRow()) * m_cellHeight;
-        const QColor cursorColor(QStringLiteral("#86a9ff"));
+        const QColor cursorColor = palette.cursor;
 
         switch (screen.cursorShape()) {
         case TerminalCursorShape::Block: {
@@ -363,7 +379,7 @@ void TerminalView::paint(QPainter* painter)
                 font.setUnderline(cursorCell.style.underline);
                 font.setStrikeOut(cursorCell.style.strikethrough);
                 painter->setFont(font);
-                painter->setPen(TerminalScreen::defaultBackground());
+                painter->setPen(palette.background);
                 painter->drawText(QPointF(left, top + m_ascent), cursorCell.text);
             }
             break;

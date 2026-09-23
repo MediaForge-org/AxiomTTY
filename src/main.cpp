@@ -19,6 +19,7 @@ int main(int argc, char* argv[])
     qmlRegisterType<TerminalView>("AxiomTTY.Native", 1, 0, "TerminalView");
 
     AppSettings appSettings;
+    QObject::connect(&app, &QCoreApplication::aboutToQuit, &appSettings, &AppSettings::flush);
     SessionManager sessionManager(&appSettings);
 
     QQmlApplicationEngine engine;
